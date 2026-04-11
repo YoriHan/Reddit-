@@ -1,6 +1,10 @@
 from .reddit_client import RedditClient
 
 
+def _client(client) -> RedditClient:
+    return client if client is not None else RedditClient()
+
+
 def _normalise_subreddit(data: dict) -> dict:
     return {
         "display_name": data.get("display_name", ""),
@@ -20,24 +24,21 @@ def _extract_subreddits(response: dict) -> list:
 
 
 def get_popular_subreddits(limit: int = 20, client=None) -> list:
-    if client is None:
-        client = RedditClient()
-    response = client.get("/subreddits/popular.json", {"limit": limit})
+    response = _client(client).get("/subreddits/popular.json", {"limit": limit})
     return _extract_subreddits(response)
 
 
 def search_subreddits(query: str, limit: int = 10, client=None) -> list:
-    if client is None:
-        client = RedditClient()
-    response = client.get("/subreddits/search.json", {"q": query, "limit": limit})
+    response = _client(client).get("/subreddits/search.json", {"q": query, "limit": limit})
     return _extract_subreddits(response)
 
 
 def get_subreddit_info(name: str, client=None) -> dict:
-    if client is None:
-        client = RedditClient()
-    response = client.get(f"/r/{name}/about.json")
-    return _normalise_subreddit(response["data"])
+    response = _client(client).get(f"/r/{name}/about.json")
+    data = response.get("data")
+    if data is None:
+        raise KeyError(f"Unexpected API response for subreddit '{name}': 'data' key missing.")
+    return _normalise_subreddit(data)
 
 
 def explore_by_topic(topic: str, limit: int = 10, client=None) -> list:

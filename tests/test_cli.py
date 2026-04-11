@@ -86,6 +86,32 @@ class TestWriteTitle:
         mock_fn.assert_called_once()
 
 
+class TestWriteComment:
+    def test_write_comment_passes_post_context(self):
+        with patch("reddit_toolkit.cli.generate_comment", return_value="Great post!") as mock_fn:
+            with patch("reddit_toolkit.cli.print_text"):
+                run_cli(
+                    "write", "comment",
+                    "--post-title", "Hello World",
+                    "--post-body", "Some body text",
+                    "--post-context", "extra context here",
+                    "--tone", "supportive",
+                )
+        mock_fn.assert_called_once_with(
+            post_title="Hello World",
+            post_body="Some body text",
+            post_context="extra context here",
+            tone="supportive",
+        )
+
+    def test_write_comment_default_post_context_is_empty(self):
+        with patch("reddit_toolkit.cli.generate_comment", return_value="A comment") as mock_fn:
+            with patch("reddit_toolkit.cli.print_text"):
+                run_cli("write", "comment", "--post-title", "My Post")
+        call_kwargs = mock_fn.call_args
+        assert call_kwargs.kwargs.get("post_context", "") == ""
+
+
 class TestErrorHandling:
     def test_reddit_api_error_exits_1(self):
         from reddit_toolkit.reddit_client import RedditAPIError

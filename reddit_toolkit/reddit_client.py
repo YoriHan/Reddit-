@@ -26,10 +26,8 @@ class RedditClient:
         """
         url = self.BASE_URL + path
         headers = {"User-Agent": self.USER_AGENT}
-        try:
-            response = requests.get(url, params=params or {}, headers=headers)
-        finally:
-            time.sleep(1)
+        response = requests.get(url, params=params or {}, headers=headers)
+        time.sleep(1)
         try:
             response.raise_for_status()
         except Exception as e:

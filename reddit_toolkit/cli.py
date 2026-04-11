@@ -1,12 +1,14 @@
 import argparse
+import contextlib
 import sys
+
+import requests
 
 from .content import get_hot_posts, get_top_posts, get_rising_posts, search_posts
 from .subreddits import get_popular_subreddits, search_subreddits, get_subreddit_info, explore_by_topic
 from .writer import generate_post_title, write_post_body, generate_comment, WriterConfigError
 from .reddit_client import RedditAPIError
 from .display import print_posts, print_subreddits, print_text
-import requests
 
 
 def _handle_error(msg: str, exit_code: int = 1):
@@ -14,38 +16,37 @@ def _handle_error(msg: str, exit_code: int = 1):
     sys.exit(exit_code)
 
 
-def cmd_content_hot(args):
+@contextlib.contextmanager
+def _reddit_errors():
+    """Catch Reddit API and network errors and exit with a user-facing message."""
     try:
-        posts = get_hot_posts(subreddit=args.subreddit, limit=args.limit)
-        print_posts(posts, verbose=args.verbose)
+        yield
     except RedditAPIError as e:
         _handle_error(str(e))
     except requests.exceptions.ConnectionError:
         _handle_error("Network error: could not connect to Reddit.")
+
+
+def cmd_content_hot(args):
+    with _reddit_errors():
+        posts = get_hot_posts(subreddit=args.subreddit, limit=args.limit)
+        print_posts(posts, verbose=args.verbose)
 
 
 def cmd_content_top(args):
-    try:
+    with _reddit_errors():
         posts = get_top_posts(subreddit=args.subreddit, limit=args.limit, timeframe=args.time)
         print_posts(posts, verbose=args.verbose)
-    except RedditAPIError as e:
-        _handle_error(str(e))
-    except requests.exceptions.ConnectionError:
-        _handle_error("Network error: could not connect to Reddit.")
 
 
 def cmd_content_rising(args):
-    try:
+    with _reddit_errors():
         posts = get_rising_posts(subreddit=args.subreddit, limit=args.limit)
         print_posts(posts, verbose=args.verbose)
-    except RedditAPIError as e:
-        _handle_error(str(e))
-    except requests.exceptions.ConnectionError:
-        _handle_error("Network error: could not connect to Reddit.")
 
 
 def cmd_content_search(args):
-    try:
+    with _reddit_errors():
         posts = search_posts(
             query=args.query,
             subreddit=args.subreddit,
@@ -53,54 +54,34 @@ def cmd_content_search(args):
             sort=args.sort,
         )
         print_posts(posts, verbose=args.verbose)
-    except RedditAPIError as e:
-        _handle_error(str(e))
-    except requests.exceptions.ConnectionError:
-        _handle_error("Network error: could not connect to Reddit.")
 
 
 def cmd_subs_popular(args):
-    try:
+    with _reddit_errors():
         subs = get_popular_subreddits(limit=args.limit)
         print_subreddits(subs)
-    except RedditAPIError as e:
-        _handle_error(str(e))
-    except requests.exceptions.ConnectionError:
-        _handle_error("Network error: could not connect to Reddit.")
 
 
 def cmd_subs_search(args):
-    try:
+    with _reddit_errors():
         subs = search_subreddits(query=args.query, limit=args.limit)
         print_subreddits(subs)
-    except RedditAPIError as e:
-        _handle_error(str(e))
-    except requests.exceptions.ConnectionError:
-        _handle_error("Network error: could not connect to Reddit.")
 
 
 def cmd_subs_info(args):
-    try:
+    with _reddit_errors():
         sub = get_subreddit_info(args.subreddit)
         print(f"r/{sub['display_name']} — {sub['title']}")
         print(f"Subscribers: {sub['subscribers']:,}")
         print(f"URL: https://www.reddit.com{sub['url']}")
         if sub.get("description"):
             print(f"\nDescription:\n{sub['description']}")
-    except RedditAPIError as e:
-        _handle_error(str(e))
-    except requests.exceptions.ConnectionError:
-        _handle_error("Network error: could not connect to Reddit.")
 
 
 def cmd_subs_explore(args):
-    try:
+    with _reddit_errors():
         subs = explore_by_topic(topic=args.topic, limit=args.limit)
         print_subreddits(subs)
-    except RedditAPIError as e:
-        _handle_error(str(e))
-    except requests.exceptions.ConnectionError:
-        _handle_error("Network error: could not connect to Reddit.")
 
 
 def cmd_write_title(args):
@@ -132,6 +113,7 @@ def cmd_write_comment(args):
         comment = generate_comment(
             post_title=args.post_title,
             post_body=args.post_body or "",
+            post_context=args.post_context or "",
             tone=args.tone,
         )
         print_text("Comment", comment)
@@ -233,6 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
     wc_p = write_sub.add_parser("comment", help="Generate a comment")
     wc_p.add_argument("--post-title", required=True, help="Title of the post to comment on")
     wc_p.add_argument("--post-body", default="", help="Body of the post (optional)")
+    wc_p.add_argument("--post-context", default="", help="Additional context for the post (optional)")
     wc_p.add_argument("--tone", default="neutral",
                       choices=["neutral", "funny", "supportive", "critical"])
     wc_p.set_defaults(func=cmd_write_comment)

@@ -65,6 +65,12 @@ class TestGetSubredditInfo:
         assert result["display_name"] == "python"
         assert "subscribers" in result
 
+    def test_missing_data_key_raises_key_error(self):
+        # Simulates a banned/quarantined subreddit returning an unexpected shape.
+        bad_response = {"kind": "t5"}  # no "data" key
+        with pytest.raises(KeyError, match="data"):
+            get_subreddit_info("banned_sub", client=make_client(bad_response))
+
 
 class TestExploreByTopic:
     def test_is_alias_for_search(self):

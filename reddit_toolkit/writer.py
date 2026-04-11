@@ -17,13 +17,9 @@ def _make_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
-def _get_model() -> str:
-    return os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5")
-
-
 def _call_claude(client, system_prompt: str, user_prompt: str) -> str:
     response = client.messages.create(
-        model=_get_model(),
+        model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
         max_tokens=1024,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],

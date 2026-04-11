@@ -44,3 +44,12 @@ class TestRedditClientGet:
                 client = RedditClient()
                 client.get("/r/python/hot.json")
         mock_sleep.assert_called_once_with(1)
+
+    def test_sleep_not_called_on_connection_error(self):
+        import requests as req_module
+        with patch("requests.get", side_effect=req_module.exceptions.ConnectionError("unreachable")):
+            with patch("time.sleep") as mock_sleep:
+                client = RedditClient()
+                with pytest.raises(req_module.exceptions.ConnectionError):
+                    client.get("/r/python/hot.json")
+        mock_sleep.assert_not_called()

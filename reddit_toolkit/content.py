@@ -1,6 +1,10 @@
 from .reddit_client import RedditClient
 
 
+def _client(client) -> RedditClient:
+    return client if client is not None else RedditClient()
+
+
 def _normalise_post(data: dict) -> dict:
     return {
         "title": data.get("title", ""),
@@ -23,34 +27,26 @@ def _extract_posts(response: dict) -> list:
 
 
 def get_hot_posts(subreddit: str = "all", limit: int = 10, client=None) -> list:
-    if client is None:
-        client = RedditClient()
-    response = client.get(f"/r/{subreddit}/hot.json", {"limit": limit})
+    response = _client(client).get(f"/r/{subreddit}/hot.json", {"limit": limit})
     return _extract_posts(response)
 
 
 def get_top_posts(subreddit: str = "all", limit: int = 10, timeframe: str = "week", client=None) -> list:
-    if client is None:
-        client = RedditClient()
-    response = client.get(f"/r/{subreddit}/top.json", {"limit": limit, "t": timeframe})
+    response = _client(client).get(f"/r/{subreddit}/top.json", {"limit": limit, "t": timeframe})
     return _extract_posts(response)
 
 
 def get_rising_posts(subreddit: str = "all", limit: int = 10, client=None) -> list:
-    if client is None:
-        client = RedditClient()
-    response = client.get(f"/r/{subreddit}/rising.json", {"limit": limit})
+    response = _client(client).get(f"/r/{subreddit}/rising.json", {"limit": limit})
     return _extract_posts(response)
 
 
 def search_posts(query: str, subreddit: str = None, limit: int = 10, sort: str = "relevance", client=None) -> list:
-    if client is None:
-        client = RedditClient()
     if subreddit:
         path = f"/r/{subreddit}/search.json"
         params = {"q": query, "limit": limit, "sort": sort, "restrict_sr": 1}
     else:
         path = "/search.json"
         params = {"q": query, "limit": limit, "sort": sort}
-    response = client.get(path, params)
+    response = _client(client).get(path, params)
     return _extract_posts(response)
