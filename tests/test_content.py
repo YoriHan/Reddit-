@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from reddit_toolkit.content import (
-    get_hot_posts, get_top_posts, get_rising_posts, search_posts
+    get_hot_posts, get_top_posts, get_rising_posts, search_posts, _normalise_post
 )
 
 SAMPLE_POST = {
@@ -30,6 +30,17 @@ def make_client(response=LISTING_RESPONSE):
     client = MagicMock()
     client.get.return_value = response
     return client
+
+
+class TestNormalisePost:
+    def test_selftext_included(self):
+        result = _normalise_post({"selftext": "hello body"})
+        assert "selftext" in result
+        assert result["selftext"] == "hello body"
+
+    def test_selftext_defaults_to_empty_string(self):
+        result = _normalise_post({})
+        assert result["selftext"] == ""
 
 
 class TestGetHotPosts:

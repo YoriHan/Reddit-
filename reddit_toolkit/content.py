@@ -15,6 +15,7 @@ def _normalise_post(data: dict) -> dict:
         "num_comments": data.get("num_comments", 0),
         "permalink": data.get("permalink", ""),
         "created_utc": data.get("created_utc", 0.0),
+        "selftext": data.get("selftext", ""),
     }
 
 
