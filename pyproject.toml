@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reddit-toolkit"
+version = "0.1.0"
+description = "CLI toolkit to discover Reddit content and write Reddit posts"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.33.1",
+    "anthropic>=0.94.0",
+]
+
+[project.scripts]
+reddit-toolkit = "reddit_toolkit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["reddit_toolkit*"]
