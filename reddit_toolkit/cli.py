@@ -220,6 +220,72 @@ def build_parser() -> argparse.ArgumentParser:
                       choices=["neutral", "funny", "supportive", "critical"])
     wc_p.set_defaults(func=cmd_write_comment)
 
+    # --- product ---
+    from .cli_product import (
+        cmd_product_create, cmd_product_list, cmd_product_show,
+        cmd_product_add_subreddit, cmd_product_recommend_subreddits,
+    )
+    from .cli_scan import cmd_scan_run, cmd_scan_show, cmd_scan_setup_cron
+    from .cli_notion import cmd_notion_setup
+
+    product_parser = subparsers.add_parser("product", help="Manage product profiles")
+    product_sub = product_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    pc_p = product_sub.add_parser("create", help="Create a new product profile")
+    pc_p.add_argument("--name", required=True, help="Product name")
+    pc_p.add_argument("--description", default="", help="Product description")
+    pc_p.add_argument("--from-file", default=None, metavar="FILE")
+    pc_p.add_argument("--from-dir", default=None, metavar="DIR")
+    pc_p.set_defaults(func=cmd_product_create)
+
+    pl_p = product_sub.add_parser("list", help="List all product profiles")
+    pl_p.set_defaults(func=cmd_product_list)
+
+    ps_p = product_sub.add_parser("show", help="Show a product profile")
+    ps_p.add_argument("product_id")
+    ps_p.set_defaults(func=cmd_product_show)
+
+    pa_p = product_sub.add_parser("add-subreddit", help="Add a subreddit to a product")
+    pa_p.add_argument("product_id")
+    pa_p.add_argument("subreddit")
+    pa_p.add_argument("--why", default="")
+    pa_p.set_defaults(func=cmd_product_add_subreddit)
+
+    pr_p = product_sub.add_parser("recommend-subreddits", help="AI-recommend subreddits")
+    pr_p.add_argument("product_id")
+    pr_p.add_argument("--limit", "-n", type=int, default=10)
+    pr_p.set_defaults(func=cmd_product_recommend_subreddits)
+
+    # --- scan ---
+    scan_parser = subparsers.add_parser("scan", help="Scan Reddit for opportunities")
+    scan_sub = scan_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    sr_p = scan_sub.add_parser("run", help="Run a scan for a product")
+    sr_p.add_argument("--product", required=True)
+    sr_p.add_argument("--threshold", type=int, default=None)
+    sr_p.add_argument("--top", type=int, default=5)
+    sr_p.add_argument("--dry-run", action="store_true")
+    sr_p.set_defaults(func=cmd_scan_run)
+
+    ss_p = scan_sub.add_parser("show", help="Show recent scan results")
+    ss_p.add_argument("--product", required=True)
+    ss_p.add_argument("--last", type=int, default=20)
+    ss_p.set_defaults(func=cmd_scan_show)
+
+    sc_p = scan_sub.add_parser("setup-cron", help="Print a crontab line for scheduled scanning")
+    sc_p.add_argument("--product", required=True)
+    sc_p.add_argument("--hour", type=int, default=8)
+    sc_p.add_argument("--minute", type=int, default=0)
+    sc_p.set_defaults(func=cmd_scan_setup_cron)
+
+    # --- notion ---
+    notion_parser = subparsers.add_parser("notion", help="Manage Notion integration")
+    notion_sub = notion_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    ns_p = notion_sub.add_parser("setup", help="Create Notion database for a product")
+    ns_p.add_argument("--product", required=True)
+    ns_p.set_defaults(func=cmd_notion_setup)
+
     return parser
 
 
