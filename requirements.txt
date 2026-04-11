@@ -1,2 +1,4 @@
 requests>=2.33.1
 anthropic>=0.94.0
+notion-client>=2.2.1
+python-dotenv>=1.0.0
