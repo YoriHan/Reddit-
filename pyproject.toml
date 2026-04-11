@@ -10,6 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
     "requests>=2.33.1",
     "anthropic>=0.94.0",
+    "notion-client>=2.2.1",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]
