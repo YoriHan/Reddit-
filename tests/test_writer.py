@@ -2,7 +2,9 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 from reddit_toolkit.writer import (
-    generate_post_title, write_post_body, generate_comment, WriterConfigError
+    generate_post_title, write_post_body, generate_comment, WriterConfigError,
+    score_post_for_product, generate_opportunity_draft,
+    extract_profile_from_text, recommend_subreddits,
 )
 
 
@@ -80,3 +82,40 @@ class TestGenerateComment:
         messages = mock_client.messages.create.call_args.kwargs["messages"]
         prompt_text = " ".join(m["content"] for m in messages)
         assert "funny" in prompt_text.lower()
+
+
+class TestScorePostForProduct:
+    def test_returns_score_dict(self):
+        mock_client = make_anthropic_mock('{"score": 8, "hook_angle": "relevant", "reasoning": "matches"}')
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = score_post_for_product(
+                    {"title": "test", "subreddit": "python", "score": 100, "num_comments": 10, "selftext": ""},
+                    {"name": "MyApp", "description": "...", "problem_solved": "", "keywords": []}
+                )
+        assert result["score"] == 8
+        assert isinstance(result["hook_angle"], str)
+
+    def test_parse_error_returns_zero_score(self):
+        mock_client = make_anthropic_mock("not json")
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = score_post_for_product(
+                    {"title": "t", "subreddit": "s", "score": 0, "num_comments": 0, "selftext": ""}, {}
+                )
+        assert result["score"] == 0
+        assert result["reasoning"] == "parse error"
+
+
+class TestGenerateOpportunityDraft:
+    def test_returns_title_and_body(self):
+        mock_client = make_anthropic_mock('{"title": "A title", "body": "A body"}')
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = generate_opportunity_draft(
+                    {"title": "t", "subreddit": "python", "score": 100, "num_comments": 5},
+                    {"name": "MyApp", "description": "...", "tone": "casual"},
+                    "hook"
+                )
+        assert result["title"] == "A title"
+        assert result["body"] == "A body"
