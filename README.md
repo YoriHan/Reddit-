@@ -10,14 +10,39 @@ Instead of guessing which subreddits to post in or writing posts that get flagge
 
 Reddit punishes outsiders. Every community has its own tone, vocabulary, and tolerance for self-promotion. The toolkit is built around a four-step workflow that respects that:
 
-```
-1. Define your product
-       ↓
-2. Find subreddits that fit (style match)
-       ↓
-3. Learn how that community actually writes (style learn)
-       ↓
-4. Generate a post that sounds like it belongs there (style mimic)
+```mermaid
+flowchart TD
+    A("📦 Your Product\n─────────────\ndescription · codebase · URL")
+
+    A -->|product create| B
+
+    B("🗂️ Product Profile\n─────────────\nname · audience · features · keywords")
+
+    B -->|style match --topic| C
+
+    C("🎯 Subreddit Shortlist\n─────────────\nranked by fit · subscriber count\nself-promo tolerance · post angle")
+
+    C -->|style learn| D
+
+    D("🧠 Style Profile\n─────────────\ntone · title patterns\nvocabulary signals · community norms")
+
+    D -->|style mimic| E
+
+    E("✍️ Post Draft\n─────────────\ntitle + body that sounds like\nit was written by a regular")
+
+    B -.->|scan run / scan daemon| F
+
+    F("🔍 Opportunity Feed\n─────────────\nposts where your product\nis a natural, relevant answer")
+
+    F -.->|notion push| G("📋 Notion Database")
+
+    style A fill:#f0f0f0,stroke:#999
+    style B fill:#dbeafe,stroke:#3b82f6
+    style C fill:#fef3c7,stroke:#f59e0b
+    style D fill:#dcfce7,stroke:#22c55e
+    style E fill:#f3e8ff,stroke:#a855f7
+    style F fill:#fee2e2,stroke:#ef4444
+    style G fill:#f0fdf4,stroke:#86efac
 ```
 
 ---
