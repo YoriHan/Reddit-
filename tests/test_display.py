@@ -1,7 +1,6 @@
 import io
-import sys
 from datetime import datetime
-from unittest.mock import patch
+from rich.console import Console
 from reddit_toolkit.display import print_posts, print_subreddits, print_text
 
 
@@ -25,56 +24,55 @@ SAMPLE_SUB = {
 }
 
 
-def capture_stdout(func, *args, **kwargs):
+def capture(func, *args, **kwargs):
     buf = io.StringIO()
-    with patch("sys.stdout", buf):
-        func(*args, **kwargs)
+    console = Console(file=buf, force_terminal=False)
+    func(*args, **kwargs, console=console)
     return buf.getvalue()
 
 
 class TestPrintPosts:
     def test_shows_title(self):
-        out = capture_stdout(print_posts, [SAMPLE_POST])
+        out = capture(print_posts, [SAMPLE_POST])
         assert "Test Post Title" in out
 
     def test_shows_index(self):
-        out = capture_stdout(print_posts, [SAMPLE_POST])
-        assert "1." in out or "1)" in out
+        out = capture(print_posts, [SAMPLE_POST])
+        assert "1" in out
 
     def test_verbose_shows_score(self):
-        out = capture_stdout(print_posts, [SAMPLE_POST], verbose=True)
+        out = capture(print_posts, [SAMPLE_POST], verbose=True)
         assert "500" in out
 
     def test_verbose_shows_comments(self):
-        out = capture_stdout(print_posts, [SAMPLE_POST], verbose=True)
+        out = capture(print_posts, [SAMPLE_POST], verbose=True)
         assert "42" in out
 
     def test_verbose_shows_human_date(self):
-        out = capture_stdout(print_posts, [SAMPLE_POST], verbose=True)
-        # created_utc 1700000000 = 2023-11-14
+        out = capture(print_posts, [SAMPLE_POST], verbose=True)
         assert "2023" in out
 
     def test_non_verbose_no_score(self):
-        out = capture_stdout(print_posts, [SAMPLE_POST], verbose=False)
-        assert "score" not in out.lower()
+        out = capture(print_posts, [SAMPLE_POST], verbose=False)
+        assert "500" not in out
 
     def test_empty_list_no_crash(self):
-        out = capture_stdout(print_posts, [])
-        assert "no posts" in out.lower() or out == "" or len(out) >= 0  # no crash
+        out = capture(print_posts, [])
+        assert len(out) >= 0  # no crash
 
 
 class TestPrintSubreddits:
     def test_shows_display_name(self):
-        out = capture_stdout(print_subreddits, [SAMPLE_SUB])
+        out = capture(print_subreddits, [SAMPLE_SUB])
         assert "python" in out
 
     def test_shows_subscribers(self):
-        out = capture_stdout(print_subreddits, [SAMPLE_SUB])
+        out = capture(print_subreddits, [SAMPLE_SUB])
         assert "1468454" in out or "1,468,454" in out
 
 
 class TestPrintText:
     def test_shows_label_and_content(self):
-        out = capture_stdout(print_text, "Title Suggestions", "First title")
+        out = capture(print_text, "Title Suggestions", "First title")
         assert "Title Suggestions" in out
         assert "First title" in out

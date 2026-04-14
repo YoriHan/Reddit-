@@ -225,7 +225,7 @@ def build_parser() -> argparse.ArgumentParser:
         cmd_product_create, cmd_product_list, cmd_product_show,
         cmd_product_add_subreddit, cmd_product_recommend_subreddits,
     )
-    from .cli_scan import cmd_scan_run, cmd_scan_show, cmd_scan_setup_cron
+    from .cli_scan import cmd_scan_run, cmd_scan_show, cmd_scan_setup_cron, cmd_scan_daemon
     from .cli_notion import cmd_notion_setup
 
     product_parser = subparsers.add_parser("product", help="Manage product profiles")
@@ -236,6 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
     pc_p.add_argument("--description", default="", help="Product description")
     pc_p.add_argument("--from-file", default=None, metavar="FILE")
     pc_p.add_argument("--from-dir", default=None, metavar="DIR")
+    pc_p.add_argument("--from-url", default=None, metavar="URL", help="Fetch product info from a URL")
     pc_p.set_defaults(func=cmd_product_create)
 
     pl_p = product_sub.add_parser("list", help="List all product profiles")
@@ -265,6 +266,7 @@ def build_parser() -> argparse.ArgumentParser:
     sr_p.add_argument("--threshold", type=int, default=None)
     sr_p.add_argument("--top", type=int, default=5)
     sr_p.add_argument("--dry-run", action="store_true")
+    sr_p.add_argument("--notion", action="store_true", help="Push results to Notion after scan")
     sr_p.set_defaults(func=cmd_scan_run)
 
     ss_p = scan_sub.add_parser("show", help="Show recent scan results")
@@ -278,12 +280,21 @@ def build_parser() -> argparse.ArgumentParser:
     sc_p.add_argument("--minute", type=int, default=0)
     sc_p.set_defaults(func=cmd_scan_setup_cron)
 
+    # scan daemon
+    sdaemon_p = scan_sub.add_parser("daemon", help="Run scan as an in-process daemon on a schedule")
+    sdaemon_p.add_argument("--product", required=True, help="Product profile ID")
+    sdaemon_p.add_argument("--interval", "-i", default="8h",
+                            help="Scan interval (e.g. 8h, 30m, 1d). Default: 8h")
+    sdaemon_p.set_defaults(func=cmd_scan_daemon)
+
     # --- notion ---
     notion_parser = subparsers.add_parser("notion", help="Manage Notion integration")
     notion_sub = notion_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
 
-    ns_p = notion_sub.add_parser("setup", help="Create Notion database for a product")
+    ns_p = notion_sub.add_parser("setup", help="Create or link a Notion database for a product")
     ns_p.add_argument("--product", required=True)
+    ns_p.add_argument("--database-id", default=None, metavar="ID",
+                      help="Link an existing Notion database instead of creating a new one")
     ns_p.set_defaults(func=cmd_notion_setup)
 
     # --- style ---

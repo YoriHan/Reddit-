@@ -3,7 +3,7 @@ import sys
 
 from .profile_store import new_profile, save, load, list_profiles, ProfileNotFoundError
 from .writer import extract_profile_from_text, recommend_subreddits, WriterConfigError
-from .extractor import read_file, read_codebase
+from .extractor import read_file, read_codebase, read_url
 
 
 def cmd_product_create(args):
@@ -16,6 +16,13 @@ def cmd_product_create(args):
     elif args.from_file:
         print(f"Reading file {args.from_file}...")
         raw_text = read_file(args.from_file)
+    elif args.from_url:
+        print(f"Fetching article from {args.from_url}...")
+        try:
+            raw_text = read_url(args.from_url)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
     elif args.description:
         raw_text = args.description
 

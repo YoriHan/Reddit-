@@ -12,6 +12,10 @@ dependencies = [
     "anthropic>=0.94.0",
     "notion-client>=2.2.1",
     "python-dotenv>=1.0.0",
+    "newspaper4k>=0.9.3",
+    "rich>=13.0.0",
+    "schedule>=1.2.0",
+    "praw>=7.7.0",
 ]
 
 [project.scripts]

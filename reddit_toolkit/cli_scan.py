@@ -1,8 +1,12 @@
 import json
 import os
+import re
 import shutil
 import sys
+import time
 from pathlib import Path
+
+import schedule as _schedule
 
 from .profile_store import load, ProfileNotFoundError
 from .scanner import run_scan
@@ -32,6 +36,14 @@ def cmd_scan_run(args):
             print(f"  Hook: {opp['score_result']['hook_angle']}")
             print(f"  Draft title: {opp['draft']['title']}")
 
+    if getattr(args, "notion", False) and not args.dry_run:
+        from .notion_pusher import push_scan_results, NotionConfigError
+        try:
+            push_scan_results(profile, result)
+            print(f"  Pushed to Notion: {len(result.opportunities) or 1} page(s)")
+        except NotionConfigError as e:
+            print(f"  Notion push failed: {e}", file=sys.stderr)
+
 
 def cmd_scan_show(args):
     state_dir = Path(os.environ.get("REDDIT_TOOLKIT_DATA_DIR", "~/.reddit-toolkit")).expanduser() / "state"
@@ -48,6 +60,41 @@ def cmd_scan_show(args):
             print(f"[{opp['scanned_at'][:10]}] [{opp['score_result']['score']}/10] {opp['post']['title']}")
         except Exception:
             continue
+
+
+def cmd_scan_daemon(args):
+    m = re.fullmatch(r"(\d+)(h|m|d)", args.interval)
+    if not m:
+        print(f"Error: invalid interval '{args.interval}'. Use e.g. 8h, 30m, 1d.", file=sys.stderr)
+        sys.exit(1)
+    n, unit = int(m.group(1)), m.group(2)
+
+    try:
+        profile = load(args.product)
+    except ProfileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    def job():
+        print(f"\nRunning scan for '{args.product}'...")
+        run_scan(profile=profile, dry_run=False, top_n=10, threshold=7.0)
+        print("Scan complete.")
+
+    if unit == "h":
+        _schedule.every(n).hours.do(job)
+    elif unit == "m":
+        _schedule.every(n).minutes.do(job)
+    else:
+        _schedule.every(n).days.do(job)
+
+    print(f"Daemon started. Scanning every {args.interval}. Ctrl+C to stop.")
+    try:
+        while True:
+            _schedule.run_pending()
+            time.sleep(60)
+    except KeyboardInterrupt:
+        print("\nDaemon stopped.")
+        sys.exit(0)
 
 
 def cmd_scan_setup_cron(args):

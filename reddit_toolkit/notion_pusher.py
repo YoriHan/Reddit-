@@ -42,6 +42,24 @@ def get_notion_client():
     return Client(auth=token)
 
 
+def link_database(product_id: str, database_id: str, client=None) -> None:
+    """Save an existing Notion database ID for a product and ensure its schema."""
+    _save_db_id(product_id, database_id)
+    if client is None:
+        client = get_notion_client()
+    ensure_schema(database_id, client)
+
+
+def ensure_schema(database_id: str, client=None) -> None:
+    """Add any missing properties to an existing Notion database."""
+    if client is None:
+        client = get_notion_client()
+    schema = _database_schema()
+    # Title column already exists as "Name"; skip it and add the rest
+    props_to_add = {k: v for k, v in schema.items() if k != "Post Title"}
+    client.databases.update(database_id, properties=props_to_add)
+
+
 def ensure_database(product_id: str, profile: dict, client=None) -> str:
     """Return the Notion database ID for the product, creating it if needed."""
     cached = _load_db_id(product_id)
@@ -53,7 +71,10 @@ def ensure_database(product_id: str, profile: dict, client=None) -> str:
 
     parent_page_id = os.environ.get("NOTION_PARENT_PAGE_ID")
     if not parent_page_id:
-        raise NotionConfigError("NOTION_PARENT_PAGE_ID environment variable is not set.")
+        raise NotionConfigError(
+            "NOTION_PARENT_PAGE_ID environment variable is not set.\n"
+            "Tip: use 'notion setup --product <id> --database-id <id>' to link an existing database."
+        )
 
     db = client.databases.create(
         parent={"type": "page_id", "page_id": parent_page_id},
@@ -78,7 +99,7 @@ def _database_schema() -> dict:
         "Hook Angle": {"rich_text": {}},
         "Reddit URL": {"url": {}},
         "Reddit Score": {"number": {}},
-        "Comments": {"number": {}},
+        "Comment": {"number": {}},
         "Scanned At": {"date": {}},
         "Draft Title": {"rich_text": {}},
         "Reasoning": {"rich_text": {}},
@@ -90,14 +111,14 @@ def _build_properties(opportunity: dict) -> dict:
     score_result = opportunity["score_result"]
     draft = opportunity["draft"]
     return {
-        "Post Title": {"title": [{"text": {"content": post.get("title", "")[:2000]}}]},
+        "Name": {"title": [{"text": {"content": post.get("title", "")[:2000]}}]},
         "Status": {"select": {"name": "Draft"}},
         "Subreddit": {"select": {"name": post.get("subreddit", "unknown")}},
         "AI Score": {"number": score_result.get("score", 0)},
         "Hook Angle": {"rich_text": [{"text": {"content": score_result.get("hook_angle", "")[:2000]}}]},
         "Reddit URL": {"url": f"https://reddit.com{post.get('permalink', '')}"},
         "Reddit Score": {"number": post.get("score", 0)},
-        "Comments": {"number": post.get("num_comments", 0)},
+        "Comment": {"number": post.get("num_comments", 0)},
         "Scanned At": {"date": {"start": opportunity.get("scanned_at", datetime.now(timezone.utc).isoformat())}},
         "Draft Title": {"rich_text": [{"text": {"content": draft.get("title", "")[:2000]}}]},
         "Reasoning": {"rich_text": [{"text": {"content": score_result.get("reasoning", "")[:2000]}}]},
@@ -154,7 +175,7 @@ def push_empty_scan(database_id: str, product_id: str, scanned_at: str, client=N
     page = client.pages.create(
         parent={"database_id": database_id},
         properties={
-            "Post Title": {"title": [{"text": {"content": f"[Scan] No opportunities — {scanned_at[:10]}"}}]},
+            "Name": {"title": [{"text": {"content": f"[Scan] No opportunities — {scanned_at[:10]}"}}]},
             "Status": {"select": {"name": "Skipped"}},
             "Scanned At": {"date": {"start": scanned_at}},
         },

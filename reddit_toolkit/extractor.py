@@ -1,5 +1,6 @@
 # reddit_toolkit/extractor.py
 import os
+import newspaper
 
 _SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", ".mypy_cache"}
 _TEXT_EXTENSIONS = {".py", ".md", ".txt", ".toml", ".json", ".yaml", ".yml",
@@ -51,3 +52,13 @@ def read_codebase(path: str, max_chars: int = 40000) -> str:
             break
 
     return "\n\n---\n\n".join(parts)
+
+
+def read_url(url: str) -> str:
+    """Download and parse article text from a URL using newspaper4k."""
+    article = newspaper.Article(url)
+    article.download()
+    article.parse()
+    if not article.text.strip():
+        raise ValueError(f"No article text found at {url}")
+    return article.text

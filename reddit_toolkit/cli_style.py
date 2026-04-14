@@ -12,6 +12,7 @@ from .style_learner import fetch_subreddit_corpus
 from .writer import analyze_subreddit_style, generate_mimic_post, match_subreddits_for_topic, WriterConfigError
 from .subreddits import get_subreddit_info
 from .display import print_text
+from .praw_client import make_praw_client_if_configured
 
 
 @contextlib.contextmanager
@@ -29,7 +30,8 @@ def _reddit_errors():
 def _learn_subreddit(subreddit: str, pages: int) -> dict:
     """Shared helper: fetch corpus and analyze style. Returns full style cache dict."""
     with _reddit_errors():
-        posts = fetch_subreddit_corpus(subreddit, pages=pages)
+        reddit_client = make_praw_client_if_configured()
+        posts = fetch_subreddit_corpus(subreddit, pages=pages, client=reddit_client)
     print(f"  Fetched {len(posts)} posts total.")
     print("Analyzing writing style with AI...")
     style_data = analyze_subreddit_style(subreddit, posts)

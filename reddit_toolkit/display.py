@@ -1,47 +1,64 @@
-from datetime import datetime, timezone
+from datetime import datetime
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 
-def _format_timestamp(utc_ts: float) -> str:
-    """Convert Unix timestamp to human-readable UTC date string."""
-    try:
-        dt = datetime.fromtimestamp(utc_ts, tz=timezone.utc)
-        return dt.strftime("%Y-%m-%d %H:%M UTC")
-    except (ValueError, OSError, TypeError):
-        return "unknown date"
-
-
-def print_posts(posts: list, verbose: bool = False) -> None:
-    """Print a numbered list of Reddit posts."""
+def print_posts(posts, verbose=False, console=None):
+    if console is None:
+        console = Console()
     if not posts:
-        print("No posts found.")
+        console.print("[dim]No posts found.[/dim]")
         return
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("#", style="dim", justify="right", no_wrap=True)
+    table.add_column("Title", max_width=60)
+    if verbose:
+        table.add_column("Score", justify="right")
+        table.add_column("Comments", justify="right")
+        table.add_column("Date")
+        table.add_column("URL")
+    table.add_column("Subreddit")
     for i, post in enumerate(posts, 1):
-        print(f"{i}. {post['title']}")
+        date_str = ""
+        if verbose and post.get("created_utc"):
+            date_str = datetime.utcfromtimestamp(post["created_utc"]).strftime("%Y-%m-%d")
         if verbose:
-            print(f"   Score: {post['score']}  |  Comments: {post['num_comments']}")
-            print(f"   Posted: {_format_timestamp(post['created_utc'])}")
-            print(f"   URL: {post.get('url', 'N/A')}")
-            print(f"   Author: u/{post.get('author', 'unknown')}")
-            print()
+            table.add_row(
+                str(i),
+                post.get("title", ""),
+                str(post.get("score", "")),
+                str(post.get("num_comments", "")),
+                date_str,
+                post.get("url", ""),
+                post.get("subreddit", ""),
+            )
+        else:
+            table.add_row(str(i), post.get("title", ""), post.get("subreddit", ""))
+    console.print(table)
 
 
-def print_subreddits(subreddits: list) -> None:
-    """Print a numbered list of subreddits with metadata."""
-    if not subreddits:
-        print("No subreddits found.")
-        return
-    for i, sub in enumerate(subreddits, 1):
-        subscribers = f"{sub['subscribers']:,}"
-        print(f"{i}. r/{sub['display_name']} — {subscribers} subscribers")
-        if sub.get("description"):
-            desc = sub["description"]
-            if len(desc) > 100:
-                desc = desc[:97] + "..."
-            print(f"   {desc}")
+def print_subreddits(subs, console=None):
+    if console is None:
+        console = Console()
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("#", style="dim", justify="right", no_wrap=True)
+    table.add_column("Subreddit")
+    table.add_column("Subscribers", justify="right")
+    table.add_column("Description", max_width=50)
+    for i, sub in enumerate(subs, 1):
+        subs_str = f"{sub.get('subscribers', 0):,}" if sub.get("subscribers") else ""
+        table.add_row(
+            str(i),
+            sub.get("display_name", ""),
+            subs_str,
+            sub.get("description", ""),
+        )
+    console.print(table)
 
 
-def print_text(label: str, content: str) -> None:
-    """Print a labelled text block."""
-    print(f"\n=== {label} ===")
-    print(content)
-    print("=" * (len(label) + 8))
+def print_text(label, content, console=None):
+    if console is None:
+        console = Console()
+    console.print(Panel(content, title=label))

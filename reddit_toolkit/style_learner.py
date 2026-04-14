@@ -1,3 +1,5 @@
+import warnings
+
 from .reddit_client import RedditClient
 from .content import _extract_posts
 
@@ -12,6 +14,7 @@ def fetch_subreddit_corpus(
 
     Fetches top-all posts (paginated) then hot posts for recency signal.
     Deduplicates by permalink. Respects RedditClient's built-in 1s rate limit.
+    If client is a PRAWClient, also fetches top comments for the first 5 posts.
 
     Returns:
         List of normalised post dicts (same schema as content._normalise_post)
@@ -45,5 +48,21 @@ def fetch_subreddit_corpus(
         if post["permalink"] not in seen_permalinks:
             seen_permalinks.add(post["permalink"])
             all_posts.append(post)
+
+    # Phase 3: optional comment enrichment (PRAWClient only)
+    from .praw_client import PRAWClient  # noqa: PLC0415 — lazy to avoid circular at module top
+    if isinstance(c, PRAWClient):
+        for post in all_posts[:5]:
+            try:
+                comments = c.fetch_comments_for_post(post["permalink"], limit=10)
+                for body in comments:
+                    if body.strip():
+                        key = f"__comment__{body[:50]}"
+                        if key not in seen_permalinks:
+                            seen_permalinks.add(key)
+                            all_posts.append({**post, "title": body, "selftext": body,
+                                              "permalink": key})
+            except Exception as e:
+                warnings.warn(f"Comment fetch failed for {post.get('permalink')}: {e}")
 
     return all_posts
