@@ -258,19 +258,29 @@ def _build_rules_blocks(subreddit: str, data: dict) -> list:
 
     learned = data.get("norms_learned_at", "")[:10]
     posts = meta.get("posts_analyzed", "?")
-    model = meta.get("norms_model_used", "?")
     blocks.append({
         "object": "block", "type": "callout",
         "callout": {
-            "rich_text": [{"text": {"content": f"Last updated: {learned} · {posts} posts analyzed · {model}"}}],
+            "rich_text": [{"text": {"content": f"更新时间：{learned} · 分析帖子数：{posts}"}}],
             "icon": {"emoji": "🗓️"},
             "color": "gray_background",
         }
     })
 
+    # 整体氛围观察
+    vibe = norms.get("整体氛围观察", "")
+    if vibe:
+        blocks.append({"object": "block", "type": "heading_2", "heading_2": {
+            "rich_text": [{"text": {"content": "🌐 整体氛围观察"}}]
+        }})
+        blocks.append({"object": "block", "type": "paragraph", "paragraph": {
+            "rich_text": [{"text": {"content": vibe}}]
+        }})
+
+    # 官方规则
     if official:
         blocks.append({"object": "block", "type": "heading_2", "heading_2": {
-            "rich_text": [{"text": {"content": "📋 Official Rules"}}]
+            "rich_text": [{"text": {"content": "📋 官方规则（侧边栏）"}}]
         }})
         for r in official:
             name = r.get("short_name", "")
@@ -280,11 +290,12 @@ def _build_rules_blocks(subreddit: str, data: dict) -> list:
                 "rich_text": [{"text": {"content": content}}]
             }})
 
-    tone = norms.get("tone_guidelines", "")
-    values = norms.get("community_values", [])
+    # 社群氛围 & 价值观
+    tone = norms.get("社群氛围", "")
+    values = norms.get("社群价值观", [])
     if tone or values:
         blocks.append({"object": "block", "type": "heading_2", "heading_2": {
-            "rich_text": [{"text": {"content": "🎯 Tone & Community Values"}}]
+            "rich_text": [{"text": {"content": "🎯 社群氛围与价值观"}}]
         }})
         if tone:
             blocks.append({"object": "block", "type": "paragraph", "paragraph": {
@@ -295,40 +306,44 @@ def _build_rules_blocks(subreddit: str, data: dict) -> list:
                 "rich_text": [{"text": {"content": val}}]
             }})
 
-    removed = norms.get("what_gets_removed", [])
+    # 会被删除的内容
+    removed = norms.get("会被删除的内容", [])
     if removed:
         blocks.append({"object": "block", "type": "heading_2", "heading_2": {
-            "rich_text": [{"text": {"content": "🚫 What Gets Removed"}}]
+            "rich_text": [{"text": {"content": "🚫 会被删除的内容"}}]
         }})
         for item in removed:
             blocks.append({"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {
                 "rich_text": [{"text": {"content": item}}]
             }})
 
-    checklist = norms.get("posting_checklist", [])
+    # 发帖检查清单
+    checklist = norms.get("发帖检查清单", [])
     if checklist:
         blocks.append({"object": "block", "type": "heading_2", "heading_2": {
-            "rich_text": [{"text": {"content": "✅ Posting Checklist"}}]
+            "rich_text": [{"text": {"content": "✅ 发帖前检查清单"}}]
         }})
         for item in checklist:
             blocks.append({"object": "block", "type": "to_do", "to_do": {
                 "rich_text": [{"text": {"content": item}}], "checked": False
             }})
 
-    angles = norms.get("safe_post_angles", [])
+    # 安全发帖角度
+    angles = norms.get("安全发帖角度", [])
     if angles:
         blocks.append({"object": "block", "type": "heading_2", "heading_2": {
-            "rich_text": [{"text": {"content": "💡 Safe Post Angles"}}]
+            "rich_text": [{"text": {"content": "💡 安全发帖角度"}}]
         }})
         for item in angles:
             blocks.append({"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {
                 "rich_text": [{"text": {"content": item}}]
             }})
 
-    link_rules = norms.get("link_rules", "")
+    # 外链规则
+    link_rules = norms.get("外链规则", "")
     if link_rules:
         blocks.append({"object": "block", "type": "heading_2", "heading_2": {
-            "rich_text": [{"text": {"content": "🔗 Link Rules"}}]
+            "rich_text": [{"text": {"content": "🔗 外链规则"}}]
         }})
         blocks.append({"object": "block", "type": "paragraph", "paragraph": {
             "rich_text": [{"text": {"content": link_rules}}]

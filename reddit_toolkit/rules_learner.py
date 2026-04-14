@@ -12,11 +12,12 @@ class RulesInferenceError(Exception):
 
 _NORMS_SYSTEM = (
     "You are a Reddit community analyst. Analyze these posts and infer the implicit "
-    "community norms — what gets removed, what's welcome, unwritten rules. "
-    "Return JSON only, no other text. "
-    'Schema: {"tone_guidelines": str, "community_values": [str], '
-    '"what_gets_removed": [str], "posting_checklist": [str], '
-    '"safe_post_angles": [str], "link_rules": str}'
+    "community norms — what gets removed, what's welcome, unwritten rules, and the overall vibe. "
+    "Respond entirely in Simplified Chinese. Return JSON only, no other text. "
+    'Schema: {"社群氛围": str, "社群价值观": [str], '
+    '"会被删除的内容": [str], "发帖检查清单": [str], '
+    '"安全发帖角度": [str], "外链规则": str, '
+    '"整体氛围观察": str}'
 )
 
 
@@ -69,8 +70,7 @@ def infer_norms(subreddit: str, posts: list, ai_client=None) -> tuple:
             "Try: reddit-toolkit rules learn --force --subreddit " + subreddit
         ) from e
 
-    required = {"tone_guidelines", "community_values", "what_gets_removed",
-                "posting_checklist", "safe_post_angles", "link_rules"}
+    required = {"社群氛围", "社群价值观", "会被删除的内容", "发帖检查清单", "安全发帖角度", "外链规则", "整体氛围观察"}
     missing = required - set(norms.keys())
     if missing:
         raise RulesInferenceError(

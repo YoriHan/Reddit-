@@ -255,9 +255,12 @@ def generate_opportunity_draft(post: dict, profile: dict, hook_angle: str) -> di
         f"Tone: {profile.get('tone', 'casual')}. Max 300 words for the body. "
         "Return JSON only. Schema: {\"title\": str, \"body\": str}"
     )
+    github_url = profile.get("github_url", "")
+    url_line = f"\nProduct URL (use exactly if linking): {github_url}" if github_url else ""
     user = (
         f"Product: {profile.get('name', '')}\n"
-        f"Product description: {profile.get('description', '')}\n"
+        f"Product description: {profile.get('description', '')}"
+        f"{url_line}\n"
         f"Hook angle: {hook_angle}\n\n"
         f"Trending post to respond to:\n"
         f"Title: {post.get('title', '')}\n"
@@ -439,23 +442,27 @@ def generate_mimic_post(
                 for r in official[:5]
             )
             system += f"\n\nOfficial subreddit rules (must not violate):\n{rules_text}"
-        checklist = rules.get("inferred_norms", {}).get("posting_checklist", [])
+        checklist = rules.get("inferred_norms", {}).get("发帖检查清单", [])
         if checklist:
             system += "\n\nPosting checklist:\n" + "\n".join(f"- {c}" for c in checklist)
-        what_removed = rules.get("inferred_norms", {}).get("what_gets_removed", [])
+        what_removed = rules.get("inferred_norms", {}).get("会被删除的内容", [])
         if what_removed:
             system += "\n\nWhat gets removed in this sub:\n" + "\n".join(f"- {c}" for c in what_removed)
+    github_url = profile.get("github_url", "")
+    url_line = f"\nGitHub / URL: {github_url} — use this exact URL if you link to the product" if github_url else ""
     system += (
         f"\n\nProduct to mention naturally:"
         f"\nName: {profile.get('name', '')}"
         f"\nDescription: {profile.get('description', '')}"
         f"\nProblem solved: {profile.get('problem_solved', '')}"
         f"\nTarget audience: {', '.join(profile.get('target_audience', []))}"
+        f"{url_line}"
         "\n\nRules:"
         "\n1. Community value first — product mention is secondary"
         "\n2. Product mention must feel incidental, not the headline"
         "\n3. Match vocabulary and formatting exactly as seen in examples"
         "\n4. Respect the self-promotion tolerance level"
+        "\n5. If you include a link to the product, use the exact GitHub/URL provided above — never invent a URL"
         '\nReturn JSON only: {"title": str, "body": str, "why_it_fits": str}'
     )
     post_type = topic if topic else "general contribution"
