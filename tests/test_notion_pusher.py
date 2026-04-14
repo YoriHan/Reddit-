@@ -24,7 +24,7 @@ SAMPLE_OPPORTUNITY = {
 
 def test_build_properties_has_required_keys():
     props = _build_properties(SAMPLE_OPPORTUNITY)
-    assert "Post Title" in props
+    assert "Name" in props
     assert "AI Score" in props
     assert props["AI Score"]["number"] == 8
     assert props["Status"]["select"]["name"] == "Draft"

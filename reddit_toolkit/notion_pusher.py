@@ -56,7 +56,7 @@ def ensure_schema(database_id: str, client=None) -> None:
         client = get_notion_client()
     schema = _database_schema()
     # Title column already exists as "Name"; skip it and add the rest
-    props_to_add = {k: v for k, v in schema.items() if k != "Post Title"}
+    props_to_add = {k: v for k, v in schema.items() if k != "Name"}
     client.databases.update(database_id, properties=props_to_add)
 
 
@@ -88,7 +88,7 @@ def ensure_database(product_id: str, profile: dict, client=None) -> str:
 
 def _database_schema() -> dict:
     return {
-        "Post Title": {"title": {}},
+        "Name": {"title": {}},
         "Type": {"select": {"options": [
             {"name": "Post", "color": "blue"},
             {"name": "Comment", "color": "purple"},
@@ -115,7 +115,7 @@ def _build_properties(opportunity: dict) -> dict:
     score_result = opportunity["score_result"]
     draft = opportunity["draft"]
     return {
-        "Post Title": {"title": [{"text": {"content": post.get("title", "")[:2000]}}]},
+        "Name": {"title": [{"text": {"content": post.get("title", "")[:2000]}}]},
         "Type": {"select": {"name": "Comment"}},
         "Status": {"select": {"name": "Draft"}},
         "Subreddit": {"select": {"name": post.get("subreddit", "unknown")}},
@@ -195,7 +195,7 @@ def push_mimic_post(profile: dict, subreddit: str, result: dict, client=None) ->
     db_id = ensure_database(profile["id"], profile, client=client)
     now = datetime.now(timezone.utc).isoformat()
     properties = {
-        "Post Title": {"title": [{"text": {"content": result.get("title", "")[:2000]}}]},
+        "Name": {"title": [{"text": {"content": result.get("title", "")[:2000]}}]},
         "Type": {"select": {"name": "Post"}},
         "Status": {"select": {"name": "Draft"}},
         "Subreddit": {"select": {"name": subreddit}},
