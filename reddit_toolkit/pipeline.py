@@ -18,14 +18,51 @@ from .writer import (
 from .rules_store import load as load_rules, is_stale_norms, RulesNotFoundError, save as save_rules
 from .rules_learner import learn_rules, RulesInferenceError
 from .subreddit_tracker import add_subreddits, list_tracked
+from .subreddits import validate_subreddit_for_promotion
 
 
-def discover_subreddits(product_id: str, limit: int = 10) -> tuple:
-    """Ask AI to recommend subreddits for the product. Returns (candidates, newly_added_count)."""
+def _validate_and_filter(candidates: list, min_subscribers: int = 5000) -> tuple:
+    """Check each AI-recommended subreddit against the real Reddit API.
+
+    Returns (validated_candidates, rejected_list).
+    Each validated candidate gets enriched with 'subscribers' and 'active_users'.
+    Candidates are sorted by subscriber count (descending).
+    """
+    validated = []
+    rejected = []
+    for c in candidates:
+        name = c.get("name", "")
+        if not name:
+            continue
+        result = validate_subreddit_for_promotion(name, min_subscribers=min_subscribers)
+        if result.get("ok"):
+            validated.append({
+                **c,
+                "subscribers": result.get("subscribers", 0),
+                "active_users": result.get("active_users", 0),
+            })
+        else:
+            rejected.append({"name": name, "reason": result.get("reason", "")})
+    validated.sort(key=lambda x: x.get("subscribers", 0), reverse=True)
+    return validated, rejected
+
+
+def discover_subreddits(product_id: str, limit: int = 30) -> tuple:
+    """Ask AI to recommend subreddits for the product, validate against Reddit API, then track.
+
+    Returns (validated_candidates, newly_added_count).
+    """
     profile = load_profile(product_id)
+    print(f"  AI 生成 {limit} 个候选...", flush=True)
     candidates = recommend_subreddits(profile, limit=limit)
-    added = add_subreddits(product_id, candidates)
-    return candidates, added
+    print(f"  验证 {len(candidates)} 个候选（检查订阅数 + 是否公开）...", flush=True)
+    validated, rejected = _validate_and_filter(candidates)
+    if rejected:
+        print(f"  过滤掉 {len(rejected)} 个：" + ", ".join(
+            f"r/{r['name']}({r['reason']})" for r in rejected
+        ), flush=True)
+    added = add_subreddits(product_id, validated)
+    return validated, added
 
 
 def _learn_sub(sub_name: str, force: bool = False) -> tuple:

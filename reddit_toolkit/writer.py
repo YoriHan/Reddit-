@@ -28,10 +28,10 @@ def _parse_json(raw: str):
     return _json.loads(text.strip())
 
 
-def _call_claude(client, system_prompt: str, user_prompt: str) -> str:
+def _call_claude(client, system_prompt: str, user_prompt: str, max_tokens: int = 1024) -> str:
     response = client.messages.create(
         model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
-        max_tokens=1024,
+        max_tokens=max_tokens,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
@@ -150,7 +150,7 @@ def extract_profile_from_text(raw_text: str, name: str) -> dict:
                 "key_features": [], "keywords": []}
 
 
-def recommend_subreddits(profile: dict, limit: int = 10) -> list:
+def recommend_subreddits(profile: dict, limit: int = 30) -> list:
     """Ask Claude to recommend subreddits for a product.
 
     Returns list of {"name": str, "why": str}.
@@ -158,16 +158,20 @@ def recommend_subreddits(profile: dict, limit: int = 10) -> list:
     client = _make_client()
     system = (
         "You are a Reddit marketing expert. Given a product description, recommend subreddits "
-        f"where the product would be naturally relevant to discuss. Return a JSON array of exactly {limit} objects. "
+        f"where the product would be naturally relevant to discuss. "
+        f"Think broadly: include niche communities, large general-dev communities, tool-specific communities, "
+        f"and communities where the target audience hangs out even if they don't discuss this exact product type yet. "
+        f"Return a JSON array of exactly {limit} objects. "
         'Schema: [{"name": "subreddit_name_without_r/", "why": "one sentence reason"}]'
     )
     user = (
         f"Product: {profile.get('name', '')}\n"
         f"Description: {profile.get('description', '')}\n"
         f"Target audience: {', '.join(profile.get('target_audience', []))}\n"
-        f"Key features: {', '.join(profile.get('key_features', []))}"
+        f"Key features: {', '.join(profile.get('key_features', []))}\n"
+        f"Keywords: {', '.join(profile.get('keywords', []))}"
     )
-    raw = _call_claude(client, system, user)
+    raw = _call_claude(client, system, user, max_tokens=2048)
     try:
         return _parse_json(raw)
     except _json.JSONDecodeError:

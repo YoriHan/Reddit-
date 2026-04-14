@@ -39,10 +39,13 @@ def cmd_pipeline_discover(args):
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"发现 {len(candidates)} 个候选，新增 {added} 个：\n")
+    print(f"\n通过验证：{len(candidates)} 个，新增 {added} 个\n")
     for s in list_tracked(args.product):
-        print(f"  r/{s['name']} — {s['why']}")
-        print(f"    加入时间: {s['added_at'][:10]}")
+        subs = s.get("subscribers", 0)
+        subs_label = f"{subs:,}" if subs else "未知"
+        print(f"  r/{s['name']}  ({subs_label} 订阅)")
+        print(f"    原因: {s['why']}")
+        print(f"    加入: {s['added_at'][:10]}")
 
 
 def cmd_pipeline_list(args):
