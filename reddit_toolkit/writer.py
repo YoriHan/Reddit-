@@ -9,7 +9,7 @@ class WriterConfigError(Exception):
 
 
 def _make_client():
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         raise WriterConfigError(
             "ANTHROPIC_API_KEY environment variable is not set. "
@@ -25,7 +25,12 @@ def _call_claude(client, system_prompt: str, user_prompt: str) -> str:
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
-    return response.content[0].text
+    text = response.content[0].text.strip()
+    # Strip markdown code fences if Claude wraps JSON in ```json ... ```
+    if text.startswith("```"):
+        lines = text.splitlines()
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    return text
 
 
 def generate_post_title(subreddit: str, topic: str, context: str = "") -> list:
@@ -256,7 +261,10 @@ def generate_opportunity_draft(post: dict, profile: dict, hook_angle: str) -> di
         system=system,
         messages=[{"role": "user", "content": user}],
     )
-    raw = response.content[0].text
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
         result = _json.loads(raw)
         return {"title": result.get("title", ""), "body": result.get("body", "")}
@@ -308,7 +316,10 @@ def analyze_subreddit_style(subreddit: str, posts: list) -> dict:
         system=system,
         messages=[{"role": "user", "content": user}],
     )
-    raw = response.content[0].text
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
         return _json.loads(raw)
     except _json.JSONDecodeError:
