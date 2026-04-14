@@ -26,11 +26,11 @@ def cmd_rules_learn(args):
 
     n_official = len(data.get("official_rules", []))
     norms = data.get("inferred_norms", {})
-    checklist = norms.get("posting_checklist", [])
+    checklist = norms.get("发帖检查清单", [])
     print(f"\nRules profile saved for r/{args.subreddit}.")
-    print(f"  Official rules: {n_official}")
-    print(f"  Tone: {norms.get('tone_guidelines', 'N/A')[:80]}")
-    print(f"  Posting checklist: {len(checklist)} items")
+    print(f"  官方规则: {n_official} 条")
+    print(f"  社群氛围: {norms.get('社群氛围', 'N/A')[:80]}")
+    print(f"  发帖检查清单: {len(checklist)} 项")
 
     if getattr(args, "notion", False):
         _push_to_notion(args.subreddit, data)

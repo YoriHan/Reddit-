@@ -371,6 +371,32 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Notion page URL or ID")
     rns_p.set_defaults(func=cmd_rules_notion_setup)
 
+    # --- pipeline ---
+    from .cli_pipeline import cmd_pipeline_run, cmd_pipeline_discover, cmd_pipeline_list, cmd_pipeline_daemon
+
+    pipeline_parser = subparsers.add_parser("pipeline", help="自动发现 subreddits、学习社群、生成内容并推送 Notion")
+    pipeline_sub = pipeline_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    pp_run = pipeline_sub.add_parser("run", help="运行完整 pipeline：发现→学习→生成→推送 Notion")
+    pp_run.add_argument("--product", "-p", required=True, help="产品 profile ID")
+    pp_run.add_argument("--dry-run", action="store_true", help="不推送 Notion，只本地生成")
+    pp_run.add_argument("--force", action="store_true", help="强制重新学习所有 subreddits")
+    pp_run.set_defaults(func=cmd_pipeline_run)
+
+    pp_disc = pipeline_sub.add_parser("discover", help="发现并更新产品适合的 subreddits")
+    pp_disc.add_argument("--product", "-p", required=True, help="产品 profile ID")
+    pp_disc.add_argument("--limit", "-n", type=int, default=10, help="候选数量（默认 10）")
+    pp_disc.set_defaults(func=cmd_pipeline_discover)
+
+    pp_list = pipeline_sub.add_parser("list", help="列出产品追踪的所有 subreddits")
+    pp_list.add_argument("--product", "-p", required=True, help="产品 profile ID")
+    pp_list.set_defaults(func=cmd_pipeline_list)
+
+    pp_daemon = pipeline_sub.add_parser("daemon", help="定时自动运行 pipeline（每天、每小时等）")
+    pp_daemon.add_argument("--product", "-p", required=True, help="产品 profile ID")
+    pp_daemon.add_argument("--interval", "-i", default="1d", help="运行间隔，如 1d、8h、30m（默认 1d）")
+    pp_daemon.set_defaults(func=cmd_pipeline_daemon)
+
     return parser
 
 

@@ -53,7 +53,7 @@ def infer_norms(subreddit: str, posts: list, ai_client=None) -> tuple:
 
     response = client.messages.create(
         model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
-        max_tokens=1024,
+        max_tokens=2048,
         system=_NORMS_SYSTEM,
         messages=[{"role": "user", "content": user}],
     )
