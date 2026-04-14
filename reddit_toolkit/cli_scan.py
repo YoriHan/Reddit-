@@ -121,6 +121,13 @@ def cmd_scan_setup_cron(args):
         binary = "/path/to/reddit-toolkit"
         print("Warning: 'reddit-toolkit' not found in PATH. Replace the path below manually.")
     log_path = f"~/.reddit-toolkit/logs/{args.product}.log"
-    line = f"{args.minute} {args.hour} * * * {binary} scan run --product {args.product} >> {log_path} 2>&1"
+    notion_flag = " --notion" if getattr(args, "notion", False) else ""
+    cmd = f"{binary} scan run --product {args.product}{notion_flag} >> {log_path} 2>&1"
+    if getattr(args, "every_hours", None):
+        schedule = f"{args.minute} */{args.every_hours} * * *"
+    else:
+        hour = args.hour if args.hour is not None else 8
+        schedule = f"{args.minute} {hour} * * *"
+    line = f"{schedule} {cmd}"
     print("\nAdd this line to your crontab (run 'crontab -e'):\n")
     print(f"  {line}\n")

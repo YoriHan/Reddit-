@@ -276,8 +276,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sc_p = scan_sub.add_parser("setup-cron", help="Print a crontab line for scheduled scanning")
     sc_p.add_argument("--product", required=True)
-    sc_p.add_argument("--hour", type=int, default=8)
+    sc_p.add_argument("--hour", type=int, default=None, help="Run at this hour each day (0-23)")
     sc_p.add_argument("--minute", type=int, default=0)
+    sc_p.add_argument("--every-hours", type=int, default=None, metavar="N", help="Run every N hours (e.g. 3)")
+    sc_p.add_argument("--notion", action="store_true", help="Include --notion flag in cron command")
     sc_p.set_defaults(func=cmd_scan_setup_cron)
 
     # scan daemon

@@ -116,7 +116,7 @@ def _build_properties(opportunity: dict) -> dict:
         "Subreddit": {"select": {"name": post.get("subreddit", "unknown")}},
         "AI Score": {"number": score_result.get("score", 0)},
         "Hook Angle": {"rich_text": [{"text": {"content": score_result.get("hook_angle", "")[:2000]}}]},
-        "Reddit URL": {"url": f"https://reddit.com{post.get('permalink', '')}"},
+        "Reddit URL": {"url": post.get("url") or f"https://www.reddit.com{post.get('permalink', '')}"},
         "Reddit Score": {"number": post.get("score", 0)},
         "Comment": {"number": post.get("num_comments", 0)},
         "Scanned At": {"date": {"start": opportunity.get("scanned_at", datetime.now(timezone.utc).isoformat())}},
@@ -140,7 +140,7 @@ def _build_blocks(opportunity: dict) -> list:
             f"r/{post.get('subreddit', '')} | Score: {post.get('score', 0)} | Comments: {post.get('num_comments', 0)}"
         }}]}},
         {"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content":
-            f"https://reddit.com{post.get('permalink', '')}"
+            post.get("url") or f"https://www.reddit.com{post.get('permalink', '')}"
         }}]}},
         {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"text": {"content": "AI Analysis"}}]}},
         {"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content":
