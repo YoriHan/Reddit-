@@ -395,6 +395,8 @@ CRITICAL: Output the rewritten text ONLY. No analysis, no commentary, no preambl
 
 def humanize_text(text: str) -> str:
     """Run the humanizer pass on text to remove AI writing patterns."""
+    if not text or len(text) < 20:
+        return text
     client = _make_client()
     response = client.messages.create(
         model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
@@ -402,7 +404,14 @@ def humanize_text(text: str) -> str:
         system=_HUMANIZER_SYSTEM,
         messages=[{"role": "user", "content": text}],
     )
-    return response.content[0].text.strip()
+    result = response.content[0].text.strip()
+    # Guard: if the model leaked analysis/thinking into its output, fall back to original.
+    # Signs of analysis leak: output is 2x longer than input, or contains known preamble markers.
+    analysis_markers = ("let me ", "i'll ", "the user wants", "the text ", "looking at ", "<claude")
+    lower = result.lower()
+    if len(result) > len(text) * 2 or any(lower.startswith(m) for m in analysis_markers):
+        return text
+    return result
 
 
 def generate_mimic_post(

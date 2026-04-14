@@ -205,7 +205,7 @@ def push_mimic_post(profile: dict, subreddit: str, result: dict, client=None) ->
     blocks = [
         {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"text": {"content": "Mimic Post Draft"}}]}},
         {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"text": {"content": "Title"}}]}},
-        {"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": result.get("title", "")}}]}},
+        {"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": result.get("title", "")[:1900]}}]}},
         {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"text": {"content": "Body"}}]}},
     ]
     for chunk in _split_text(result.get("body", "")):
@@ -364,7 +364,10 @@ def push_rules_profile(subreddit: str, data: dict, client=None) -> str:
             "Run: reddit-toolkit rules notion-setup --page-id <NOTION_DATABASE_OR_PAGE_ID>"
         )
 
-    title = f"r/{subreddit} — Community Rules & Norms"
+    title = f"r/{subreddit}"
+    properties = {
+        "Name": {"title": [{"text": {"content": title}}]},
+    }
     blocks = _build_rules_blocks(subreddit, data)
     existing_page_id = _load_rules_page_id(subreddit)
     page_id = None
@@ -380,19 +383,11 @@ def push_rules_profile(subreddit: str, data: dict, client=None) -> str:
             page_id = None
 
     if not page_id:
-        # Try as database entry first, fall back to page child
-        try:
-            page = client.pages.create(
-                parent={"type": "database_id", "database_id": rules_db_id},
-                properties={"Name": {"title": [{"text": {"content": title}}]}},
-                children=blocks,
-            )
-        except Exception:
-            page = client.pages.create(
-                parent={"type": "page_id", "page_id": rules_db_id},
-                properties={"title": [{"text": {"content": title}}]},
-                children=blocks,
-            )
+        page = client.pages.create(
+            parent={"type": "database_id", "database_id": rules_db_id},
+            properties=properties,
+            children=blocks,
+        )
         page_id = page["id"]
         _save_rules_page_id(subreddit, page_id)
 
