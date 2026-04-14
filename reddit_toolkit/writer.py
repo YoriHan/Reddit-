@@ -378,6 +378,10 @@ Remove these patterns:
 - Signposting: "Let's dive in", "Here's what you need to know", "Without further ado"
 - Vague attributions: "experts argue", "observers note", "industry reports suggest"
 - Persuasive authority tropes: "The real question is", "At its core", "What really matters"
+- Markdown formatting: **bold**, *italic*, __underline__ → plain text only
+- Emojis: remove all emojis entirely
+- Markdown headers: ## Heading → just write the heading as a sentence or remove
+- Markdown bullet lists with - or * → rewrite as prose or plain numbered points without symbols
 
 Add back:
 - Varied sentence length — mix short punchy sentences with longer ones
