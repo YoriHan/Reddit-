@@ -286,6 +286,42 @@ def build_parser() -> argparse.ArgumentParser:
     ns_p.add_argument("--product", required=True)
     ns_p.set_defaults(func=cmd_notion_setup)
 
+    # --- style ---
+    from .cli_style import cmd_style_learn, cmd_style_mimic, cmd_style_list, cmd_style_show
+
+    style_parser = subparsers.add_parser("style", help="Learn subreddit style and generate mimic posts")
+    style_sub = style_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    # style learn
+    sl_p = style_sub.add_parser("learn", help="Learn the writing style of a subreddit")
+    sl_p.add_argument("--subreddit", "-s", required=True, help="Subreddit name")
+    sl_p.add_argument("--pages", "-p", type=int, default=10, help="Pages to fetch (default: 10)")
+    sl_p.add_argument("--force", action="store_true", help="Re-learn even if cache is fresh")
+    sl_p.set_defaults(func=cmd_style_learn)
+
+    # style mimic
+    sm_p = style_sub.add_parser("mimic", help="Generate a post mimicking the subreddit style")
+    sm_p.add_argument("--subreddit", "-s", required=True, help="Subreddit name")
+    product_group = sm_p.add_mutually_exclusive_group(required=True)
+    product_group.add_argument("--product", help="Saved product profile ID")
+    product_group.add_argument("--describe", metavar="DESCRIPTION",
+                                help="Inline product description (no profile needed)")
+    sm_p.add_argument("--topic", "-t", default="", help="Post angle hint (e.g. 'launch announcement')")
+    sm_p.add_argument("--verbose", "-v", action="store_true",
+                       help="Also print why_it_fits analysis")
+    sm_p.add_argument("--no-cache", dest="no_cache", action="store_true",
+                       help="Fetch fresh style data before generating (5 pages)")
+    sm_p.set_defaults(func=cmd_style_mimic)
+
+    # style list
+    slist_p = style_sub.add_parser("list", help="List all cached style profiles")
+    slist_p.set_defaults(func=cmd_style_list)
+
+    # style show
+    sshow_p = style_sub.add_parser("show", help="Show a cached style profile")
+    sshow_p.add_argument("--subreddit", "-s", required=True, help="Subreddit name")
+    sshow_p.set_defaults(func=cmd_style_show)
+
     return parser
 
 
