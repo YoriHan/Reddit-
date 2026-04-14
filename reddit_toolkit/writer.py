@@ -395,7 +395,7 @@ CRITICAL: Output the rewritten text ONLY. No analysis, no commentary, no preambl
 
 def humanize_text(text: str) -> str:
     """Run the humanizer pass on text to remove AI writing patterns."""
-    if not text or len(text) < 20:
+    if not text:
         return text
     client = _make_client()
     response = client.messages.create(
@@ -406,10 +406,11 @@ def humanize_text(text: str) -> str:
     )
     result = response.content[0].text.strip()
     # Guard: if the model leaked analysis/thinking into its output, fall back to original.
-    # Signs of analysis leak: output is 2x longer than input, or contains known preamble markers.
+    # Require BOTH: output is 3x+ longer AND at least 300 chars longer (avoids false positives on short inputs).
     analysis_markers = ("let me ", "i'll ", "the user wants", "the text ", "looking at ", "<claude")
     lower = result.lower()
-    if len(result) > len(text) * 2 or any(lower.startswith(m) for m in analysis_markers):
+    leaked = len(result) > len(text) * 3 and len(result) > len(text) + 300
+    if leaked or any(lower.startswith(m) for m in analysis_markers):
         return text
     return result
 
