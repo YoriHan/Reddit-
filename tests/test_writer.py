@@ -5,6 +5,8 @@ from reddit_toolkit.writer import (
     generate_post_title, write_post_body, generate_comment, WriterConfigError,
     score_post_for_product, generate_opportunity_draft,
     extract_profile_from_text, recommend_subreddits,
+    analyze_subreddit_style, generate_mimic_post,
+    match_subreddits_for_topic,
 )
 
 
@@ -207,3 +209,42 @@ class TestGenerateMimicPost:
                 result = generate_mimic_post("python", {}, {})
         assert result["title"] == ""
         assert len(result["body"]) > 0
+
+
+class TestMatchSubredditsForTopic:
+    def test_returns_list_with_expected_fields(self):
+        mock_client = make_anthropic_mock(
+            '[{"name": "python", "why": "Active dev community", '
+            '"self_promo_tolerance": "medium", "post_angle": "Share as a tool"}]'
+        )
+        profile = {"name": "MyApp", "description": "...", "target_audience": [], "key_features": []}
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = match_subreddits_for_topic(profile, topic="launch announcement")
+        assert isinstance(result, list)
+        assert result[0]["name"] == "python"
+        assert "self_promo_tolerance" in result[0]
+        assert "post_angle" in result[0]
+
+    def test_topic_in_prompt(self):
+        mock_client = make_anthropic_mock('[{"name": "p", "why": "r", "self_promo_tolerance": "low", "post_angle": "a"}]')
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                match_subreddits_for_topic({}, topic="launch announcement", limit=3)
+        messages = mock_client.messages.create.call_args.kwargs["messages"]
+        prompt_text = " ".join(m["content"] for m in messages)
+        assert "launch announcement" in prompt_text
+
+    def test_no_topic_is_valid(self):
+        mock_client = make_anthropic_mock('[{"name": "p", "why": "r", "self_promo_tolerance": "low", "post_angle": "a"}]')
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = match_subreddits_for_topic({})
+        assert isinstance(result, list)
+
+    def test_parse_error_returns_empty_list(self):
+        mock_client = make_anthropic_mock("not json")
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = match_subreddits_for_topic({})
+        assert result == []

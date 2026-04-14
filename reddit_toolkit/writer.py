@@ -159,6 +159,36 @@ def recommend_subreddits(profile: dict, limit: int = 10) -> list:
         return []
 
 
+def match_subreddits_for_topic(profile: dict, topic: str = "", limit: int = 5) -> list:
+    """Recommend subreddits fit for a specific product + post topic.
+
+    Returns list of {"name": str, "why": str, "self_promo_tolerance": str, "post_angle": str}
+    """
+    client = _make_client()
+    system = (
+        "You are a Reddit community expert. Given a product and a post topic/angle, "
+        "recommend subreddits where this post would be genuinely welcomed. "
+        "For each, estimate self-promotion tolerance (low/medium/high) based on community culture. "
+        "Return a JSON array only — no other text. "
+        f'Schema: [{{"name": "subreddit_name_without_r/", "why": "one sentence", '
+        f'"self_promo_tolerance": "low|medium|high", "post_angle": "one sentence angle"}}]'
+    )
+    topic_line = f"\nPost topic/angle: {topic}" if topic else ""
+    user = (
+        f"Product: {profile.get('name', '')}\n"
+        f"Description: {profile.get('description', '')}\n"
+        f"Target audience: {', '.join(profile.get('target_audience', []))}\n"
+        f"Key features: {', '.join(profile.get('key_features', []))}"
+        f"{topic_line}\n\n"
+        f"Recommend {limit} subreddits."
+    )
+    raw = _call_claude(client, system, user)
+    try:
+        return _json.loads(raw)
+    except _json.JSONDecodeError:
+        return []
+
+
 def score_post_for_product(post: dict, profile: dict) -> dict:
     """Score a Reddit post's relevance as a marketing opportunity for the product.
 
