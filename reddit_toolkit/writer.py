@@ -232,3 +232,130 @@ def generate_opportunity_draft(post: dict, profile: dict, hook_angle: str) -> di
         return {"title": result.get("title", ""), "body": result.get("body", "")}
     except _json.JSONDecodeError:
         return {"title": "", "body": raw[:2000]}
+
+
+def analyze_subreddit_style(subreddit: str, posts: list) -> dict:
+    """Analyze a corpus of Reddit posts and extract the subreddit's writing style.
+
+    Takes up to 200 top-scoring posts, truncates bodies to 100 chars each,
+    and asks Claude to identify style patterns.
+
+    Returns:
+        dict with keys: tone, formality, common_title_patterns, body_style,
+        humor_level, self_promotion_tolerance, taboo_topics, vocabulary_signals,
+        community_values, successful_post_traits, raw_title_samples
+    """
+    client = _make_client()
+    top_posts = sorted(posts, key=lambda p: p.get("score", 0), reverse=True)[:200]
+
+    post_lines = []
+    for p in top_posts:
+        body_preview = (p.get("selftext") or "")[:100].replace("\n", " ")
+        post_lines.append(
+            f"TITLE: {p['title']} | SCORE: {p['score']} | BODY: {body_preview}"
+        )
+    corpus_text = "\n".join(post_lines)
+
+    system = (
+        "You are a cultural analyst specializing in online communities. "
+        "Analyze this Reddit post corpus and extract the community's writing style, "
+        "tone, format conventions, and cultural norms. "
+        "Return a JSON object only — no other text. "
+        'Schema: {"tone": str, "formality": "low|medium|high", '
+        '"common_title_patterns": [str], "body_style": str, '
+        '"humor_level": str, "self_promotion_tolerance": str, '
+        '"taboo_topics": [str], "vocabulary_signals": [str], '
+        '"community_values": [str], "successful_post_traits": str, '
+        '"raw_title_samples": [str]}'
+    )
+    user = (
+        f"Subreddit: r/{subreddit}\n"
+        f"Corpus ({len(top_posts)} posts, sorted by score):\n\n{corpus_text}"
+    )
+    response = client.messages.create(
+        model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
+        max_tokens=2048,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    raw = response.content[0].text
+    try:
+        return _json.loads(raw)
+    except _json.JSONDecodeError:
+        return {
+            "tone": raw[:200],
+            "formality": "low",
+            "common_title_patterns": [],
+            "body_style": "",
+            "humor_level": "",
+            "self_promotion_tolerance": "unknown",
+            "taboo_topics": [],
+            "vocabulary_signals": [],
+            "community_values": [],
+            "successful_post_traits": "",
+            "raw_title_samples": [p["title"] for p in top_posts[:20]],
+        }
+
+
+def generate_mimic_post(
+    subreddit: str, style: dict, profile: dict, topic: str = ""
+) -> dict:
+    """Generate a Reddit post that mimics a subreddit's style while featuring a product.
+
+    Args:
+        subreddit: Target subreddit name
+        style: Style dict from analyze_subreddit_style
+        profile: Product profile dict (from profile_store or inline)
+        topic: Optional post angle hint (e.g. 'launch announcement')
+
+    Returns:
+        {"title": str, "body": str, "why_it_fits": str}
+    """
+    client = _make_client()
+    title_samples = "\n".join(
+        f"- {t}" for t in style.get("raw_title_samples", [])[:10]
+    )
+    system = (
+        f"You are a native r/{subreddit} contributor. Write a Reddit post that fits "
+        "this community perfectly — not an ad, but a genuine contribution that "
+        "naturally mentions a product where relevant. "
+        f"\n\nCommunity style guide:"
+        f"\n- Tone: {style.get('tone', 'casual')}"
+        f"\n- Formality: {style.get('formality', 'low')}"
+        f"\n- Self-promotion tolerance: {style.get('self_promotion_tolerance', 'low')}"
+        f"\n- Successful post traits: {style.get('successful_post_traits', '')}"
+        f"\n- Common title patterns: {', '.join(style.get('common_title_patterns', []))}"
+        f"\n- Community values: {', '.join(style.get('community_values', []))}"
+        f"\n- Vocabulary to use naturally: {', '.join(style.get('vocabulary_signals', []))}"
+        f"\n- Topics to avoid: {', '.join(style.get('taboo_topics', []))}"
+        f"\n\nExample high-performing titles:\n{title_samples}"
+        f"\n\nProduct to mention naturally:"
+        f"\nName: {profile.get('name', '')}"
+        f"\nDescription: {profile.get('description', '')}"
+        f"\nProblem solved: {profile.get('problem_solved', '')}"
+        f"\nTarget audience: {', '.join(profile.get('target_audience', []))}"
+        "\n\nRules:"
+        "\n1. Community value first — product mention is secondary"
+        "\n2. Product mention must feel incidental, not the headline"
+        "\n3. Match vocabulary and formatting exactly as seen in examples"
+        "\n4. Respect the self-promotion tolerance level"
+        '\nReturn JSON only: {"title": str, "body": str, "why_it_fits": str}'
+    )
+    post_type = topic if topic else "general contribution"
+    user = f"Write a {post_type} post for r/{subreddit} that feels completely native."
+    response = client.messages.create(
+        model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
+        max_tokens=2048,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    raw = response.content[0].text
+    try:
+        result = _json.loads(raw)
+        return {
+            "title": result.get("title", ""),
+            "body": result.get("body", ""),
+            "why_it_fits": result.get("why_it_fits", ""),
+        }
+    except _json.JSONDecodeError:
+        return {"title": "", "body": raw[:2000], "why_it_fits": ""}

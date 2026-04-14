@@ -119,3 +119,91 @@ class TestGenerateOpportunityDraft:
                 )
         assert result["title"] == "A title"
         assert result["body"] == "A body"
+
+
+class TestAnalyzeSubredditStyle:
+    def test_returns_style_dict(self):
+        mock_client = make_anthropic_mock(
+            '{"tone": "casual", "formality": "low", "common_title_patterns": ["I built X"], '
+            '"body_style": "short", "humor_level": "moderate", "self_promotion_tolerance": "high", '
+            '"taboo_topics": [], "vocabulary_signals": ["pythonic"], "community_values": ["learning"], '
+            '"successful_post_traits": "demos", "raw_title_samples": ["A title"]}'
+        )
+        posts = [{"title": "test", "score": 100, "selftext": "body text", "permalink": "/a/"}]
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import analyze_subreddit_style
+                result = analyze_subreddit_style("python", posts)
+        assert result["tone"] == "casual"
+        assert isinstance(result["common_title_patterns"], list)
+
+    def test_truncates_to_200_posts(self):
+        mock_client = make_anthropic_mock('{"tone": "t", "formality": "low", "common_title_patterns": [], '
+            '"body_style": "", "humor_level": "", "self_promotion_tolerance": "", '
+            '"taboo_topics": [], "vocabulary_signals": [], "community_values": [], '
+            '"successful_post_traits": "", "raw_title_samples": []}')
+        posts = [{"title": f"post {i}", "score": i, "selftext": "", "permalink": f"/{i}/"} for i in range(300)]
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import analyze_subreddit_style
+                analyze_subreddit_style("python", posts)
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        user_content = call_kwargs["messages"][0]["content"]
+        # Corpus should contain at most 200 posts
+        assert user_content.count("TITLE:") <= 200
+
+    def test_parse_error_returns_fallback(self):
+        mock_client = make_anthropic_mock("not json")
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import analyze_subreddit_style
+                result = analyze_subreddit_style("python", [])
+        assert isinstance(result, dict)
+        assert "tone" in result
+
+
+class TestGenerateMimicPost:
+    def test_returns_title_body_why(self):
+        mock_client = make_anthropic_mock(
+            '{"title": "I built a Reddit scanner", "body": "Long post body here...", '
+            '"why_it_fits": "Matches I built X pattern"}'
+        )
+        style = {"tone": "casual", "formality": "low", "self_promotion_tolerance": "high",
+                 "successful_post_traits": "demos", "common_title_patterns": ["I built X"],
+                 "community_values": ["learning"], "vocabulary_signals": ["pythonic"],
+                 "taboo_topics": [], "raw_title_samples": ["I built a tool"]}
+        profile = {"name": "MyApp", "description": "Scans Reddit", "problem_solved": "saves time",
+                   "target_audience": ["developers"], "tone": "casual"}
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import generate_mimic_post
+                result = generate_mimic_post("python", style, profile)
+        assert result["title"] == "I built a Reddit scanner"
+        assert result["body"] == "Long post body here..."
+        assert "why_it_fits" in result
+
+    def test_uses_2048_max_tokens(self):
+        mock_client = make_anthropic_mock('{"title": "t", "body": "b", "why_it_fits": "w"}')
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import generate_mimic_post
+                generate_mimic_post("python", {}, {})
+        assert mock_client.messages.create.call_args.kwargs["max_tokens"] == 2048
+
+    def test_topic_appears_in_prompt(self):
+        mock_client = make_anthropic_mock('{"title": "t", "body": "b", "why_it_fits": "w"}')
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import generate_mimic_post
+                generate_mimic_post("python", {}, {}, topic="launch announcement")
+        user_content = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        assert "launch announcement" in user_content
+
+    def test_parse_error_returns_fallback(self):
+        mock_client = make_anthropic_mock("not json at all")
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import generate_mimic_post
+                result = generate_mimic_post("python", {}, {})
+        assert result["title"] == ""
+        assert len(result["body"]) > 0
