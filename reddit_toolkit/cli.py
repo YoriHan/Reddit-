@@ -287,7 +287,7 @@ def build_parser() -> argparse.ArgumentParser:
     ns_p.set_defaults(func=cmd_notion_setup)
 
     # --- style ---
-    from .cli_style import cmd_style_learn, cmd_style_mimic, cmd_style_list, cmd_style_show
+    from .cli_style import cmd_style_learn, cmd_style_mimic, cmd_style_list, cmd_style_show, cmd_style_match
 
     style_parser = subparsers.add_parser("style", help="Learn subreddit style and generate mimic posts")
     style_sub = style_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
@@ -321,6 +321,16 @@ def build_parser() -> argparse.ArgumentParser:
     sshow_p = style_sub.add_parser("show", help="Show a cached style profile")
     sshow_p.add_argument("--subreddit", "-s", required=True, help="Subreddit name")
     sshow_p.set_defaults(func=cmd_style_show)
+
+    # style match
+    smatch_p = style_sub.add_parser("match", help="Find subreddits that fit your product and topic")
+    product_group_m = smatch_p.add_mutually_exclusive_group(required=True)
+    product_group_m.add_argument("--product", help="Saved product profile ID")
+    product_group_m.add_argument("--describe", metavar="DESCRIPTION",
+                                  help="Inline product description (no profile needed)")
+    smatch_p.add_argument("--topic", "-t", default="", help="Post angle hint (e.g. 'launch announcement')")
+    smatch_p.add_argument("--limit", "-n", type=int, default=5, help="Number of subreddits (default: 5)")
+    smatch_p.set_defaults(func=cmd_style_match)
 
     return parser
 

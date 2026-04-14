@@ -9,7 +9,8 @@ from .profile_store import load as load_profile, ProfileNotFoundError
 from .reddit_client import RedditAPIError
 from .style_store import load as load_style, list_styles, StyleNotFoundError, is_stale, save as save_style
 from .style_learner import fetch_subreddit_corpus
-from .writer import analyze_subreddit_style, generate_mimic_post, WriterConfigError
+from .writer import analyze_subreddit_style, generate_mimic_post, match_subreddits_for_topic, WriterConfigError
+from .subreddits import get_subreddit_info
 from .display import print_text
 
 
@@ -148,3 +149,62 @@ def cmd_style_show(args):
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     print(json.dumps(data, indent=2))
+
+
+def cmd_style_match(args):
+    # Resolve product info
+    if args.product:
+        try:
+            profile = load_profile(args.product)
+        except ProfileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        profile = {
+            "name": "Product",
+            "description": args.describe,
+            "target_audience": [],
+            "key_features": [],
+        }
+
+    topic_label = args.topic or "general post"
+    print(f"Finding best subreddits for: {topic_label}...")
+    try:
+        candidates = match_subreddits_for_topic(profile, topic=args.topic or "", limit=args.limit)
+    except WriterConfigError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not candidates:
+        print("No subreddits found. Try adjusting your topic or product description.", file=sys.stderr)
+        sys.exit(1)
+
+    # Enrich with real subscriber counts from Reddit API
+    # Note: requests and RedditAPIError are already imported at module level
+    # (cli_style.py:6 and cli_style.py:9) — no inline imports needed here
+    enriched = []
+    for c in candidates:
+        try:
+            info = get_subreddit_info(c["name"])
+            c["subscribers"] = info["subscribers"]
+        except (KeyError, RedditAPIError, requests.exceptions.ConnectionError):
+            c["subscribers"] = None
+        enriched.append(c)
+
+    # Display results
+    print(f"\nTop {len(enriched)} subreddits for \"{topic_label}\":\n")
+    for i, s in enumerate(enriched, 1):
+        subs = f"{s['subscribers']:,}" if s.get("subscribers") else "unknown"
+        print(f"  {i}. r/{s['name']} — {subs} subscribers")
+        print(f"     Why: {s['why']}")
+        print(f"     Self-promo: {s.get('self_promo_tolerance', '?')}")
+        print(f"     Angle: {s.get('post_angle', '')}")
+        print()
+
+    # Next-step hints for top result
+    top = enriched[0]["name"]
+    product_flag = f"--product {args.product}" if args.product else f'--describe "{args.describe}"'
+    topic_flag = f' --topic "{args.topic}"' if args.topic else ""
+    print("Next steps:")
+    print(f"  reddit-toolkit style learn --subreddit {top}")
+    print(f"  reddit-toolkit style mimic --subreddit {top} {product_flag}{topic_flag}")
