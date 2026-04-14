@@ -1,59 +1,56 @@
 # reddit-toolkit
 
-A CLI toolkit for indie hackers and marketers who want to do Reddit right.
+专为独立开发者和出海营销人设计的 Reddit CLI 工具。
 
-Instead of guessing which subreddits to post in or writing posts that get flagged as spam, reddit-toolkit helps you understand a community deeply before you ever post — then generates content that actually fits.
+不再靠猜测选 subreddit，不再写出被当成垃圾广告删掉的帖子 —— 先深度理解一个社区，再生成真正融入那里的内容。
 
 ---
 
-## The Workflow
+## 核心工作流
 
-Reddit punishes outsiders. Every community has its own tone, vocabulary, and tolerance for self-promotion. The toolkit is built around a four-step workflow that respects that:
+Reddit 对外来者非常敏感。每个社区都有自己的语气、词汇习惯和对自我推广的容忍度。整个工具围绕四步流程设计：
 
-```mermaid
-flowchart TD
-    A("📦 Your Product\n─────────────\ndescription · codebase · URL")
-
-    A -->|product create| B
-
-    B("🗂️ Product Profile\n─────────────\nname · audience · features · keywords")
-
-    B -->|style match --topic| C
-
-    C("🎯 Subreddit Shortlist\n─────────────\nranked by fit · subscriber count\nself-promo tolerance · post angle")
-
-    C -->|style learn| D
-
-    D("🧠 Style Profile\n─────────────\ntone · title patterns\nvocabulary signals · community norms")
-
-    D -->|style mimic| E
-
-    E("✍️ Post Draft\n─────────────\ntitle + body that sounds like\nit was written by a regular")
-
-    B -.->|scan run / scan daemon| F
-
-    F("🔍 Opportunity Feed\n─────────────\nposts where your product\nis a natural, relevant answer")
-
-    F -.->|notion push| G("📋 Notion Database")
-
-    style A fill:#f0f0f0,stroke:#999
-    style B fill:#dbeafe,stroke:#3b82f6
-    style C fill:#fef3c7,stroke:#f59e0b
-    style D fill:#dcfce7,stroke:#22c55e
-    style E fill:#f3e8ff,stroke:#a855f7
-    style F fill:#fee2e2,stroke:#ef4444
-    style G fill:#f0fdf4,stroke:#86efac
+```
+                       📦 你的产品
+               文字描述 · 代码仓库 · 网页链接
+                            │
+                   product create
+                            │
+                            ▼
+                       🗂️ 产品档案
+               名称 · 目标用户 · 功能 · 关键词
+                            │
+              ┌─────────────┴──────────────────┐
+              │                                 │
+     style match --topic             scan run / scan daemon
+              │                                 │
+              ▼                                 ▼
+    🎯 匹配的 Subreddit 列表              🔍 机会推送
+    按匹配度排名 · 真实订阅人数       有人在问你能解决的问题
+    自我推广容忍度 · 建议切入角度      AI 评分 + 回复草稿
+              │                                 │
+        style learn                       notion push
+              │                                 │
+              ▼                                 ▼
+         🧠 社区风格档案                  📋 Notion 数据库
+    语气 · 标题套路 · 高频词汇
+              │
+        style mimic
+              │
+              ▼
+          ✍️ 帖子草稿
+    读起来像是社区老用户写的
 ```
 
 ---
 
-## Installation
+## 安装
 
 ```bash
 pip install reddit-toolkit
 ```
 
-Or from source:
+或从源码安装：
 
 ```bash
 git clone https://github.com/YoriHan/Reddit-
@@ -61,7 +58,7 @@ cd Reddit-
 pip install -e .
 ```
 
-**Required:** An [Anthropic API key](https://console.anthropic.com/) for all AI features.
+**必须：** 需要 [Anthropic API Key](https://console.anthropic.com/) 才能使用所有 AI 功能。
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -69,78 +66,78 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 ---
 
-## Step 1 — Define Your Product
+## 第一步 — 告诉工具你在做什么
 
-Before anything else, create a product profile. This is what the AI uses to understand what you're building and who it's for.
+创建一个产品档案。这是 AI 后续所有分析的基础 —— 它需要知道你在做什么、给谁用。
 
-**From a description:**
+**用文字描述：**
 ```bash
-reddit-toolkit product create --name "MyApp" --description "A dev tool that auto-generates API docs from code comments"
+reddit-toolkit product create --name "MyApp" --description "帮开发者自动生成 API 文档的 CLI 工具"
 ```
 
-**From your codebase (reads the actual code):**
+**直接读取代码仓库（AI 自己理解你的产品）：**
 ```bash
 reddit-toolkit product create --name "MyApp" --from-dir ./my-project
 ```
 
-**From a URL (landing page, blog post, Product Hunt listing):**
+**从网页链接提取（落地页、博客文章、Product Hunt 页面都行）：**
 ```bash
 reddit-toolkit product create --name "MyApp" --from-url https://myapp.com
 ```
 
-The AI extracts your product's description, problem solved, target audience, key features, and keywords — then saves them as a profile you can reuse.
+AI 会自动提取产品描述、解决的问题、目标用户、核心功能和关键词，保存为可复用的档案。
 
 ```bash
-reddit-toolkit product list          # see all saved profiles
-reddit-toolkit product show myapp   # inspect a profile
+reddit-toolkit product list           # 查看所有已保存的产品档案
+reddit-toolkit product show myapp    # 查看某个档案的详细内容
 ```
 
 ---
 
-## Step 2 — Find the Right Subreddits
+## 第二步 — 找到适合的 Subreddit
 
-Don't guess. Use `style match` to find subreddits where your post topic would be genuinely welcomed — with real subscriber counts and self-promotion tolerance ratings pulled from Reddit.
+不要靠猜。用 `style match` 让 AI 根据你的产品和发帖主题，找出真正欢迎你出现的社区 —— 带真实订阅人数，还有对自我推广的容忍度评级。
 
 ```bash
-reddit-toolkit style match --product myapp --topic "launch announcement"
+reddit-toolkit style match --product myapp --topic "产品发布"
 ```
 
 ```
-Finding best subreddits for: launch announcement...
+Finding best subreddits for: 产品发布...
 
-Top 5 subreddits for "launch announcement":
+Top 5 subreddits for "产品发布":
 
   1. r/SideProject — 142,000 subscribers
-     Why: Community built for founders sharing what they've shipped
+     Why: 专门给独立开发者分享作品的社区
      Self-promo: high
-     Angle: Share the problem you solved and what you learned building it
+     Angle: 聊你遇到的问题和做这个东西的过程
 
   2. r/webdev — 980,000 subscribers
-     Why: Developers actively discuss tools that improve their workflow
+     Why: 开发者会讨论能提升工作效率的工具
      Self-promo: medium
-     Angle: Lead with the technical challenge, mention the tool naturally
+     Angle: 先聊技术挑战，自然带出工具
 
   3. r/programming — 6,200,000 subscribers
-     Why: Large audience but skeptical of marketing — lead with substance
+     Why: 受众很大但对营销很警惕，要用内容说话
      Self-promo: low
-     Angle: Write about the architecture decision, not the product
+     Angle: 写架构决策，而不是产品介绍
 
   ...
 
 Next steps:
   reddit-toolkit style learn --subreddit SideProject
-  reddit-toolkit style mimic --subreddit SideProject --product myapp --topic "launch announcement"
+  reddit-toolkit style mimic --subreddit SideProject --product myapp --topic "产品发布"
 ```
 
-The output ends with the exact commands to run next. No copy-paste guessing.
+输出末尾直接给出下一步要运行的命令，不用自己想。
 
 ---
 
-## Step 3 — Learn How the Community Writes
+## 第三步 — 彻底学习这个社区的写法
 
-This is the step most people skip — and why their posts get downvoted.
+这是大多数人跳过的一步，也是帖子被踩的根本原因。
 
-`style learn` fetches hundreds of top posts from a subreddit, then uses AI to build a style profile: the community's tone, what title formats work, what vocabulary signals you belong there, and how much self-promotion they'll tolerate.
+`style learn` 会抓取该 subreddit 的数百篇热门帖子，然后用 AI 建立风格档案：这个社区的语气是什么、什么样的标题格式有效、哪些词汇能让你显得像本地人、他们对自我推广的容忍度。
 
 ```bash
 reddit-toolkit style learn --subreddit SideProject
@@ -155,73 +152,71 @@ Fetching r/SideProject corpus (10 pages)...
 Analyzing writing style with AI...
 
 Style profile saved for r/SideProject.
-  Tone: casual, first-person, story-driven
+  Tone: 随意、第一人称、讲故事
   Self-promo tolerance: high
-  Title patterns: 7 identified
+  Title patterns: 7 种已识别
   Vocabulary signals: shipped, built, months, feedback, free
 ```
 
-Style profiles are cached locally so you don't re-fetch every time.
+风格档案会缓存在本地，下次用不需要重新抓取。
 
 ```bash
-reddit-toolkit style list            # see all cached profiles
-reddit-toolkit style show --subreddit SideProject   # inspect the full analysis
+reddit-toolkit style list                              # 查看所有已缓存的风格档案
+reddit-toolkit style show --subreddit SideProject    # 查看完整分析内容
 ```
 
-**Optional: Richer style data with PRAW**
+**进阶：用 PRAW 获取更丰富的风格数据**
 
-If you have Reddit API credentials, the tool will also fetch top comments for the most popular posts — giving the AI a much deeper understanding of how people actually talk in that community.
+如果你有 Reddit API 凭据，工具还会额外抓取热门帖子的评论区 —— 让 AI 更深入地理解这个社区的人实际上怎么说话。
 
 ```bash
 export REDDIT_CLIENT_ID=your_id
 export REDDIT_CLIENT_SECRET=your_secret
-reddit-toolkit style learn --subreddit SideProject   # automatically uses PRAW when env vars are set
+reddit-toolkit style learn --subreddit SideProject   # 检测到环境变量后自动启用
 ```
 
 ---
 
-## Step 4 — Generate a Post That Fits
+## 第四步 — 生成一篇真正融入社区的帖子
 
-Now write. The AI combines your product profile with the subreddit's style profile to generate a post that sounds like it was written by a long-time community member.
+现在写。AI 把你的产品档案和社区风格档案结合起来，生成一篇读起来像社区老用户写的帖子。
 
 ```bash
-reddit-toolkit style mimic --subreddit SideProject --product myapp --topic "launch announcement"
+reddit-toolkit style mimic --subreddit SideProject --product myapp --topic "产品发布"
 ```
 
 ```
 ╭─ Mimic Post for r/SideProject ──────────────────────────────────╮
 │                                                                  │
-│ TITLE: I spent 3 months building the API docs tool I always     │
-│ wanted — finally shipped it                                      │
+│ TITLE: 花了 3 个月做了一个我一直想要的 API 文档工具，终于发布了  │
 │                                                                  │
-│ Been lurking here for a while. Finally have something to share. │
+│ 潜水了很久，终于有东西可以分享了。                               │
 │                                                                  │
-│ I write a lot of internal tools at work and the thing that      │
-│ always kills me is documentation...                             │
+│ 我在工作中写了很多内部工具，最让我崩溃的一直是文档这件事...      │
 │                                                                  │
 ╰──────────────────────────────────────────────────────────────────╯
 ```
 
-**No saved profile? Use inline description:**
+**没有保存产品档案？直接用描述：**
 ```bash
-reddit-toolkit style mimic --subreddit SideProject --describe "API doc generator for developers"
+reddit-toolkit style mimic --subreddit SideProject --describe "给开发者用的 API 文档生成工具"
 ```
 
-**Add a topic to steer the angle:**
+**用 --topic 控制发帖角度：**
 ```bash
-reddit-toolkit style mimic --subreddit SideProject --product myapp --topic "asking for beta testers"
+reddit-toolkit style mimic --subreddit SideProject --product myapp --topic "招募内测用户"
 ```
 
-**Show why the AI thinks this fits:**
+**查看 AI 为什么认为这篇帖子合适：**
 ```bash
 reddit-toolkit style mimic --subreddit SideProject --product myapp --verbose
 ```
 
 ---
 
-## Ongoing: Scan for Opportunities
+## 持续运行 — 扫描机会
 
-Once your product is set up, the scanner monitors your target subreddits and surfaces posts where your product is a natural, relevant answer.
+产品档案配置好之后，扫描器会持续监控你关注的 subreddit，找出那些有人在问你产品能解决的问题的帖子。
 
 ```bash
 reddit-toolkit scan run --product myapp --dry-run
@@ -234,26 +229,26 @@ Scan summary:
   New posts scored: 189
   Opportunities found: 3
 
-  [8/10] "Is there any tool that generates docs automatically?"
-  Hook: Direct pain point — user is actively looking for exactly this
-  Draft title: "I built something for this..."
+  [8/10] "有没有能自动生成文档的工具？"
+  Hook: 直接痛点，用户在主动找解决方案
+  Draft title: "我做了一个专门解决这个的工具..."
 
-  [7/10] "How do you handle API documentation in your team?"
-  Hook: Common frustration in the thread, good place to mention the tool naturally
-  Draft title: "We had the same problem, here's what we ended up doing"
+  [7/10] "你们团队怎么处理 API 文档的？"
+  Hook: 常见抱怨，适合自然带出工具
+  Draft title: "我们以前也有同样的问题，后来..."
 ```
 
-**Run on a schedule (no cron needed):**
+**定时自动运行（不需要配置 cron）：**
 ```bash
 reddit-toolkit scan daemon --product myapp --interval 8h
 ```
 
-**Or set up a crontab line:**
+**或者生成一行 crontab 配置：**
 ```bash
 reddit-toolkit scan setup-cron --product myapp --hour 9 --minute 0
 ```
 
-**Push results to Notion:**
+**结果推送到 Notion：**
 ```bash
 export NOTION_TOKEN=secret_...
 reddit-toolkit notion setup --product myapp
@@ -262,64 +257,64 @@ reddit-toolkit scan run --product myapp --notion
 
 ---
 
-## Other Commands
+## 其他命令
 
-**Explore Reddit without a product:**
+**不依赖产品档案，直接浏览 Reddit：**
 
 ```bash
-# Browse content
+# 浏览内容
 reddit-toolkit content hot --subreddit python --limit 20 --verbose
 reddit-toolkit content top --subreddit startups --time week
 reddit-toolkit content search "api documentation" --sort relevance
 
-# Explore subreddits
+# 探索 subreddit
 reddit-toolkit subs search "developer tools"
 reddit-toolkit subs explore "productivity"
 reddit-toolkit subs info rust
 
-# AI writing helpers (no profile needed)
-reddit-toolkit write title --subreddit webdev --topic "my new CLI tool"
-reddit-toolkit write body --subreddit webdev --title "Show HN style post"
-reddit-toolkit write comment --post-title "Best practices for API design?" --tone supportive
+# AI 写作辅助（不需要产品档案）
+reddit-toolkit write title --subreddit webdev --topic "我的新 CLI 工具"
+reddit-toolkit write body --subreddit webdev --title "Show HN 风格的帖子"
+reddit-toolkit write comment --post-title "API 设计有什么最佳实践？" --tone supportive
 ```
 
 ---
 
-## Configuration
+## 环境变量配置
 
-| Variable | Required | Description |
+| 变量 | 是否必须 | 说明 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Yes | Powers all AI features (style analysis, post generation, scanning) |
-| `NOTION_TOKEN` | Optional | Push scan results to a Notion database |
-| `REDDIT_CLIENT_ID` | Optional | Enables PRAW for richer style data (comment corpus) |
-| `REDDIT_CLIENT_SECRET` | Optional | Required with `REDDIT_CLIENT_ID` |
-| `REDDIT_USER_AGENT` | Optional | Custom user agent for PRAW (default: `reddit-toolkit/1.0`) |
+| `ANTHROPIC_API_KEY` | 必须 | 驱动所有 AI 功能（风格分析、帖子生成、机会评分） |
+| `NOTION_TOKEN` | 可选 | 把扫描结果推送到 Notion 数据库 |
+| `REDDIT_CLIENT_ID` | 可选 | 启用 PRAW，获取更丰富的风格数据（含评论语料） |
+| `REDDIT_CLIENT_SECRET` | 可选 | 与 `REDDIT_CLIENT_ID` 配合使用 |
+| `REDDIT_USER_AGENT` | 可选 | 自定义 PRAW User Agent（默认：`reddit-toolkit/1.0`） |
 
-All read-only Reddit access (content discovery, subreddit info) uses Reddit's public JSON API — no credentials needed.
+内容发现、subreddit 查询等只读功能使用 Reddit 公开 JSON API，不需要任何凭据。
 
 ---
 
-## Data Storage
+## 本地数据存储
 
-Profiles and scan state are stored locally in `~/.reddit-toolkit/`:
+产品档案和扫描状态存储在 `~/.reddit-toolkit/`：
 
 ```
 ~/.reddit-toolkit/
-  profiles/     # product profiles
-  styles/       # cached subreddit style analyses
-  state/        # scan history (deduplication + opportunity log)
+  profiles/     # 产品档案
+  styles/       # 缓存的 subreddit 风格分析
+  state/        # 扫描历史（去重 + 机会日志）
 ```
 
-Override the location:
+自定义存储路径：
 ```bash
 export REDDIT_TOOLKIT_DATA_DIR=/your/path
 ```
 
 ---
 
-## Contributing
+## 参与贡献
 
-Issues and PRs welcome. The codebase is straightforward Python — no frameworks, just `requests`, `anthropic`, and `rich`.
+欢迎提 Issue 和 PR。代码是纯 Python，没有复杂框架，核心依赖只有 `requests`、`anthropic` 和 `rich`。
 
 ```bash
 git clone https://github.com/YoriHan/Reddit-
