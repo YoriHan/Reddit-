@@ -154,6 +154,14 @@ def cmd_style_mimic(args):
     if args.verbose and result.get("why_it_fits"):
         print(f"\n[Why it fits: {result['why_it_fits']}]")
 
+    if getattr(args, "notion", False) and args.product:
+        from .notion_pusher import push_mimic_post, NotionConfigError
+        try:
+            push_mimic_post(profile, args.subreddit, result)
+            print(f"\nPushed to Notion.")
+        except NotionConfigError as e:
+            print(f"\nNotion push failed: {e}", file=sys.stderr)
+
 
 def cmd_style_list(args):
     styles = list_styles()

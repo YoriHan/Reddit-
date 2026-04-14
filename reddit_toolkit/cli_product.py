@@ -39,10 +39,14 @@ def cmd_product_create(args):
 
     print("\nDraft profile:")
     print(json.dumps(profile, indent=2))
-    confirm = input("\nSave? [y/N]: ").strip().lower()
-    if confirm != "y":
-        print("Aborted.")
-        sys.exit(0)
+    if not getattr(args, "yes", False):
+        try:
+            confirm = input("\nSave? [y/N]: ").strip().lower()
+        except EOFError:
+            confirm = "y"
+        if confirm != "y":
+            print("Aborted.")
+            sys.exit(0)
 
     save(profile)
     print(f"Saved profile '{profile['id']}'.")

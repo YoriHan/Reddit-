@@ -237,6 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
     pc_p.add_argument("--from-file", default=None, metavar="FILE")
     pc_p.add_argument("--from-dir", default=None, metavar="DIR")
     pc_p.add_argument("--from-url", default=None, metavar="URL", help="Fetch product info from a URL")
+    pc_p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
     pc_p.set_defaults(func=cmd_product_create)
 
     pl_p = product_sub.add_parser("list", help="List all product profiles")
@@ -324,6 +325,7 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Also print why_it_fits analysis")
     sm_p.add_argument("--no-cache", dest="no_cache", action="store_true",
                        help="Fetch fresh style data before generating (5 pages)")
+    sm_p.add_argument("--notion", action="store_true", help="Push generated post to Notion")
     sm_p.set_defaults(func=cmd_style_mimic)
 
     # style list

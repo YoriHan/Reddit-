@@ -89,6 +89,10 @@ def ensure_database(product_id: str, profile: dict, client=None) -> str:
 def _database_schema() -> dict:
     return {
         "Post Title": {"title": {}},
+        "Type": {"select": {"options": [
+            {"name": "Post", "color": "blue"},
+            {"name": "Comment", "color": "purple"},
+        ]}},
         "Status": {"select": {"options": [
             {"name": "Draft", "color": "yellow"},
             {"name": "Posted", "color": "green"},
@@ -112,6 +116,7 @@ def _build_properties(opportunity: dict) -> dict:
     draft = opportunity["draft"]
     return {
         "Post Title": {"title": [{"text": {"content": post.get("title", "")[:2000]}}]},
+        "Type": {"select": {"name": "Comment"}},
         "Status": {"select": {"name": "Draft"}},
         "Subreddit": {"select": {"name": post.get("subreddit", "unknown")}},
         "AI Score": {"number": score_result.get("score", 0)},
@@ -179,6 +184,39 @@ def push_empty_scan(database_id: str, product_id: str, scanned_at: str, client=N
             "Status": {"select": {"name": "Skipped"}},
             "Scanned At": {"date": {"start": scanned_at}},
         },
+    )
+    return page["id"]
+
+
+def push_mimic_post(profile: dict, subreddit: str, result: dict, client=None) -> str:
+    """Push a style mimic post draft to Notion. Returns page ID."""
+    if client is None:
+        client = get_notion_client()
+    db_id = ensure_database(profile["id"], profile, client=client)
+    now = datetime.now(timezone.utc).isoformat()
+    properties = {
+        "Post Title": {"title": [{"text": {"content": result.get("title", "")[:2000]}}]},
+        "Type": {"select": {"name": "Post"}},
+        "Status": {"select": {"name": "Draft"}},
+        "Subreddit": {"select": {"name": subreddit}},
+        "Scanned At": {"date": {"start": now}},
+        "Hook Angle": {"rich_text": [{"text": {"content": result.get("why_it_fits", "")[:2000]}}]},
+    }
+    blocks = [
+        {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"text": {"content": "Mimic Post Draft"}}]}},
+        {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"text": {"content": "Title"}}]}},
+        {"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": result.get("title", "")}}]}},
+        {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"text": {"content": "Body"}}]}},
+    ]
+    for chunk in _split_text(result.get("body", "")):
+        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": chunk}}]}})
+    if result.get("why_it_fits"):
+        blocks.append({"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"text": {"content": "Why It Fits"}}]}})
+        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": result["why_it_fits"]}}]}})
+    page = client.pages.create(
+        parent={"database_id": db_id},
+        properties=properties,
+        children=blocks,
     )
     return page["id"]
 
