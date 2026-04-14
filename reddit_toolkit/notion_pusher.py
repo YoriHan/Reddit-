@@ -221,6 +221,169 @@ def push_mimic_post(profile: dict, subreddit: str, result: dict, client=None) ->
     return page["id"]
 
 
+def _load_rules_parent_page_id() -> str | None:
+    path = _notion_dir() / "rules.config.json"
+    if path.exists():
+        return json.loads(path.read_text()).get("parent_page_id")
+    return os.environ.get("NOTION_RULES_PAGE_ID")
+
+
+def save_rules_parent_page_id(page_id: str) -> None:
+    path = _notion_dir() / "rules.config.json"
+    with open(path, "w") as f:
+        json.dump({"parent_page_id": page_id}, f)
+
+
+def _load_rules_page_id(subreddit: str) -> str | None:
+    from .profile_store import slugify
+    path = _notion_dir() / f"rules_{slugify(subreddit)}.page.json"
+    if not path.exists():
+        return None
+    with open(path) as f:
+        return json.load(f).get("page_id")
+
+
+def _save_rules_page_id(subreddit: str, page_id: str) -> None:
+    from .profile_store import slugify
+    path = _notion_dir() / f"rules_{slugify(subreddit)}.page.json"
+    with open(path, "w") as f:
+        json.dump({"page_id": page_id}, f)
+
+
+def _build_rules_blocks(subreddit: str, data: dict) -> list:
+    norms = data.get("inferred_norms", {})
+    official = data.get("official_rules", [])
+    meta = data.get("inference_metadata", {})
+    blocks = []
+
+    learned = data.get("norms_learned_at", "")[:10]
+    posts = meta.get("posts_analyzed", "?")
+    model = meta.get("norms_model_used", "?")
+    blocks.append({
+        "object": "block", "type": "callout",
+        "callout": {
+            "rich_text": [{"text": {"content": f"Last updated: {learned} · {posts} posts analyzed · {model}"}}],
+            "icon": {"emoji": "🗓️"},
+            "color": "gray_background",
+        }
+    })
+
+    if official:
+        blocks.append({"object": "block", "type": "heading_2", "heading_2": {
+            "rich_text": [{"text": {"content": "📋 Official Rules"}}]
+        }})
+        for r in official:
+            name = r.get("short_name", "")
+            desc = r.get("description", "")
+            content = f"{name} — {desc[:300]}" if desc else name
+            blocks.append({"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {
+                "rich_text": [{"text": {"content": content}}]
+            }})
+
+    tone = norms.get("tone_guidelines", "")
+    values = norms.get("community_values", [])
+    if tone or values:
+        blocks.append({"object": "block", "type": "heading_2", "heading_2": {
+            "rich_text": [{"text": {"content": "🎯 Tone & Community Values"}}]
+        }})
+        if tone:
+            blocks.append({"object": "block", "type": "paragraph", "paragraph": {
+                "rich_text": [{"text": {"content": tone}}]
+            }})
+        for val in values:
+            blocks.append({"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {
+                "rich_text": [{"text": {"content": val}}]
+            }})
+
+    removed = norms.get("what_gets_removed", [])
+    if removed:
+        blocks.append({"object": "block", "type": "heading_2", "heading_2": {
+            "rich_text": [{"text": {"content": "🚫 What Gets Removed"}}]
+        }})
+        for item in removed:
+            blocks.append({"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {
+                "rich_text": [{"text": {"content": item}}]
+            }})
+
+    checklist = norms.get("posting_checklist", [])
+    if checklist:
+        blocks.append({"object": "block", "type": "heading_2", "heading_2": {
+            "rich_text": [{"text": {"content": "✅ Posting Checklist"}}]
+        }})
+        for item in checklist:
+            blocks.append({"object": "block", "type": "to_do", "to_do": {
+                "rich_text": [{"text": {"content": item}}], "checked": False
+            }})
+
+    angles = norms.get("safe_post_angles", [])
+    if angles:
+        blocks.append({"object": "block", "type": "heading_2", "heading_2": {
+            "rich_text": [{"text": {"content": "💡 Safe Post Angles"}}]
+        }})
+        for item in angles:
+            blocks.append({"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {
+                "rich_text": [{"text": {"content": item}}]
+            }})
+
+    link_rules = norms.get("link_rules", "")
+    if link_rules:
+        blocks.append({"object": "block", "type": "heading_2", "heading_2": {
+            "rich_text": [{"text": {"content": "🔗 Link Rules"}}]
+        }})
+        blocks.append({"object": "block", "type": "paragraph", "paragraph": {
+            "rich_text": [{"text": {"content": link_rules}}]
+        }})
+
+    return blocks
+
+
+def push_rules_profile(subreddit: str, data: dict, client=None) -> str:
+    """Push rules profile to Notion. Creates or updates the page. Returns page URL."""
+    if client is None:
+        client = get_notion_client()
+
+    rules_db_id = _load_rules_parent_page_id()
+    if not rules_db_id:
+        raise NotionConfigError(
+            "Notion rules database not configured. "
+            "Run: reddit-toolkit rules notion-setup --page-id <NOTION_DATABASE_OR_PAGE_ID>"
+        )
+
+    title = f"r/{subreddit} — Community Rules & Norms"
+    blocks = _build_rules_blocks(subreddit, data)
+    existing_page_id = _load_rules_page_id(subreddit)
+    page_id = None
+
+    if existing_page_id:
+        try:
+            children = client.blocks.children.list(existing_page_id)
+            for block in children.get("results", []):
+                client.blocks.delete(block["id"])
+            client.blocks.children.append(existing_page_id, children=blocks)
+            page_id = existing_page_id
+        except Exception:
+            page_id = None
+
+    if not page_id:
+        # Try as database entry first, fall back to page child
+        try:
+            page = client.pages.create(
+                parent={"type": "database_id", "database_id": rules_db_id},
+                properties={"Name": {"title": [{"text": {"content": title}}]}},
+                children=blocks,
+            )
+        except Exception:
+            page = client.pages.create(
+                parent={"type": "page_id", "page_id": rules_db_id},
+                properties={"title": [{"text": {"content": title}}]},
+                children=blocks,
+            )
+        page_id = page["id"]
+        _save_rules_page_id(subreddit, page_id)
+
+    return f"https://notion.so/{page_id.replace('-', '')}"
+
+
 def push_scan_results(profile: dict, scan_result, client=None) -> None:
     """Push all opportunities from a ScanResult to Notion. Handles empty scans."""
     if client is None:

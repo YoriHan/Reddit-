@@ -348,7 +348,7 @@ def build_parser() -> argparse.ArgumentParser:
     smatch_p.set_defaults(func=cmd_style_match)
 
     # --- rules ---
-    from .cli_rules import cmd_rules_learn, cmd_rules_show, cmd_rules_list
+    from .cli_rules import cmd_rules_learn, cmd_rules_show, cmd_rules_list, cmd_rules_notion_setup
 
     rules_parser = subparsers.add_parser("rules", help="Manage subreddit rules and community norms")
     rules_sub = rules_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
@@ -356,6 +356,7 @@ def build_parser() -> argparse.ArgumentParser:
     rl_p = rules_sub.add_parser("learn", help="Fetch official rules and infer community norms")
     rl_p.add_argument("--subreddit", "-s", required=True, help="Subreddit name")
     rl_p.add_argument("--force", action="store_true", help="Re-learn even if cache is fresh")
+    rl_p.add_argument("--notion", action="store_true", help="Push rules page to Notion")
     rl_p.set_defaults(func=cmd_rules_learn)
 
     rs_p = rules_sub.add_parser("show", help="Show cached rules for a subreddit")
@@ -364,6 +365,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     rlist_p = rules_sub.add_parser("list", help="List all cached rule profiles")
     rlist_p.set_defaults(func=cmd_rules_list)
+
+    rns_p = rules_sub.add_parser("notion-setup", help="Set the Notion page where rules docs will be created")
+    rns_p.add_argument("--page-id", required=True, metavar="PAGE_ID_OR_URL",
+                       help="Notion page URL or ID")
+    rns_p.set_defaults(func=cmd_rules_notion_setup)
 
     return parser
 

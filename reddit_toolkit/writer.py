@@ -18,6 +18,16 @@ def _make_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
+def _parse_json(raw: str):
+    """Parse JSON from AI response, stripping markdown code fences if present."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+        if text.endswith("```"):
+            text = text.rsplit("```", 1)[0]
+    return _json.loads(text.strip())
+
+
 def _call_claude(client, system_prompt: str, user_prompt: str) -> str:
     response = client.messages.create(
         model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
@@ -134,7 +144,7 @@ def extract_profile_from_text(raw_text: str, name: str) -> dict:
     user = f"Product name: {name}\n\nContent:\n{raw_text[:30000]}"
     raw = _call_claude(client, system, user)
     try:
-        return _json.loads(raw)
+        return _parse_json(raw)
     except _json.JSONDecodeError:
         return {"description": raw[:500], "problem_solved": "", "target_audience": [],
                 "key_features": [], "keywords": []}
@@ -159,7 +169,7 @@ def recommend_subreddits(profile: dict, limit: int = 10) -> list:
     )
     raw = _call_claude(client, system, user)
     try:
-        return _json.loads(raw)
+        return _parse_json(raw)
     except _json.JSONDecodeError:
         return []
 
@@ -189,7 +199,7 @@ def match_subreddits_for_topic(profile: dict, topic: str = "", limit: int = 5) -
     )
     raw = _call_claude(client, system, user)
     try:
-        return _json.loads(raw)
+        return _parse_json(raw)
     except _json.JSONDecodeError:
         return []
 
@@ -222,7 +232,7 @@ def score_post_for_product(post: dict, profile: dict) -> dict:
     )
     raw = _call_claude(client, system, user)
     try:
-        result = _json.loads(raw)
+        result = _parse_json(raw)
         return {
             "score": int(result.get("score", 0)),
             "hook_angle": result.get("hook_angle", ""),
@@ -266,7 +276,7 @@ def generate_opportunity_draft(post: dict, profile: dict, hook_angle: str) -> di
         lines = raw.splitlines()
         raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
-        result = _json.loads(raw)
+        result = _parse_json(raw)
         title = result.get("title", "")
         body = result.get("body", "")
     except _json.JSONDecodeError:
@@ -330,7 +340,7 @@ def analyze_subreddit_style(subreddit: str, posts: list) -> dict:
         lines = raw.splitlines()
         raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
-        return _json.loads(raw)
+        return _parse_json(raw)
     except _json.JSONDecodeError:
         return {
             "tone": raw[:200],
@@ -373,9 +383,7 @@ Add back:
 - Specific details over vague claims
 - Honest acknowledgment of complexity or uncertainty
 
-Do a self-audit: identify remaining AI tells, then fix them.
-
-Return ONLY the final humanized text. No commentary, no explanations, no "here is the rewritten version"."""
+CRITICAL: Output the rewritten text ONLY. No analysis, no commentary, no preamble, no "here is", no "the text", no explanation of changes. Start immediately with the first word of the rewritten content."""
 
 
 def humanize_text(text: str) -> str:
@@ -460,7 +468,7 @@ def generate_mimic_post(
     )
     raw = response.content[0].text
     try:
-        result = _json.loads(raw)
+        result = _parse_json(raw)
         title = result.get("title", "")
         body = result.get("body", "")
         why = result.get("why_it_fits", "")
