@@ -267,9 +267,18 @@ def generate_opportunity_draft(post: dict, profile: dict, hook_angle: str) -> di
         raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
         result = _json.loads(raw)
-        return {"title": result.get("title", ""), "body": result.get("body", "")}
+        title = result.get("title", "")
+        body = result.get("body", "")
     except _json.JSONDecodeError:
-        return {"title": "", "body": raw[:2000]}
+        title = ""
+        body = raw[:2000]
+
+    # Auto-humanize: strip AI writing patterns before returning
+    if title:
+        title = humanize_text(title)
+    if body:
+        body = humanize_text(body)
+    return {"title": title, "body": body}
 
 
 def analyze_subreddit_style(subreddit: str, posts: list) -> dict:
@@ -338,8 +347,51 @@ def analyze_subreddit_style(subreddit: str, posts: list) -> dict:
         }
 
 
+_HUMANIZER_SYSTEM = """You are a writing editor. Remove AI-generated writing patterns from the text and make it sound like a real human wrote it.
+
+Remove these patterns:
+- AI vocabulary: leverage, delve, tapestry, testament, pivotal, crucial, vibrant, groundbreaking, showcasing, fostering, underscore, highlight, seamless, encompasses, intricate, garner, align with, enhance, enduring
+- Copula avoidance: "serves as", "stands as", "functions as", "represents" → replace with "is"/"are"
+- Superficial -ing phrases: "highlighting the importance of...", "reflecting the community's..." → cut or rewrite as direct statements
+- Promotional language: "nestled in", "boasts a", "breathtaking", "stunning", "renowned"
+- Rule of three: stop forcing ideas into groups of exactly three
+- Negative parallelisms: "It's not just X; it's Y" → just say the thing directly
+- Em dash overuse: replace most — with commas or periods
+- Overuse of bold text and emojis in headings
+- Chatbot artifacts: "I hope this helps!", "Let me know if...", "Great question!"
+- Excessive hedging: "could potentially possibly be argued that"
+- Generic positive conclusions: "the future looks bright", "exciting times lie ahead"
+- Filler phrases: "In order to" → "To", "Due to the fact that" → "Because", "At this point in time" → "Now"
+- Signposting: "Let's dive in", "Here's what you need to know", "Without further ado"
+- Vague attributions: "experts argue", "observers note", "industry reports suggest"
+- Persuasive authority tropes: "The real question is", "At its core", "What really matters"
+
+Add back:
+- Varied sentence length — mix short punchy sentences with longer ones
+- Opinions and reactions, not just neutral reporting
+- First person ("I", "we") when it fits
+- Specific details over vague claims
+- Honest acknowledgment of complexity or uncertainty
+
+Do a self-audit: identify remaining AI tells, then fix them.
+
+Return ONLY the final humanized text. No commentary, no explanations, no "here is the rewritten version"."""
+
+
+def humanize_text(text: str) -> str:
+    """Run the humanizer pass on text to remove AI writing patterns."""
+    client = _make_client()
+    response = client.messages.create(
+        model=os.environ.get("REDDIT_TOOLKIT_MODEL", "claude-opus-4-5"),
+        max_tokens=2048,
+        system=_HUMANIZER_SYSTEM,
+        messages=[{"role": "user", "content": text}],
+    )
+    return response.content[0].text.strip()
+
+
 def generate_mimic_post(
-    subreddit: str, style: dict, profile: dict, topic: str = ""
+    subreddit: str, style: dict, profile: dict, topic: str = "", rules: dict = None
 ) -> dict:
     """Generate a Reddit post that mimics a subreddit's style while featuring a product.
 
@@ -370,6 +422,22 @@ def generate_mimic_post(
         f"\n- Vocabulary to use naturally: {', '.join(style.get('vocabulary_signals', []))}"
         f"\n- Topics to avoid: {', '.join(style.get('taboo_topics', []))}"
         f"\n\nExample high-performing titles:\n{title_samples}"
+    )
+    if rules:
+        official = rules.get("official_rules", [])
+        if official:
+            rules_text = "\n".join(
+                f"- {r['short_name']}: {r.get('description', '')[:200]}"
+                for r in official[:5]
+            )
+            system += f"\n\nOfficial subreddit rules (must not violate):\n{rules_text}"
+        checklist = rules.get("inferred_norms", {}).get("posting_checklist", [])
+        if checklist:
+            system += "\n\nPosting checklist:\n" + "\n".join(f"- {c}" for c in checklist)
+        what_removed = rules.get("inferred_norms", {}).get("what_gets_removed", [])
+        if what_removed:
+            system += "\n\nWhat gets removed in this sub:\n" + "\n".join(f"- {c}" for c in what_removed)
+    system += (
         f"\n\nProduct to mention naturally:"
         f"\nName: {profile.get('name', '')}"
         f"\nDescription: {profile.get('description', '')}"
@@ -393,10 +461,17 @@ def generate_mimic_post(
     raw = response.content[0].text
     try:
         result = _json.loads(raw)
-        return {
-            "title": result.get("title", ""),
-            "body": result.get("body", ""),
-            "why_it_fits": result.get("why_it_fits", ""),
-        }
+        title = result.get("title", "")
+        body = result.get("body", "")
+        why = result.get("why_it_fits", "")
     except _json.JSONDecodeError:
-        return {"title": "", "body": raw[:2000], "why_it_fits": ""}
+        title = ""
+        body = raw[:2000]
+        why = ""
+
+    # Auto-humanize: strip AI writing patterns before returning
+    if title:
+        title = humanize_text(title)
+    if body:
+        body = humanize_text(body)
+    return {"title": title, "body": body, "why_it_fits": why}

@@ -111,7 +111,7 @@ def _build_properties(opportunity: dict) -> dict:
     score_result = opportunity["score_result"]
     draft = opportunity["draft"]
     return {
-        "Name": {"title": [{"text": {"content": post.get("title", "")[:2000]}}]},
+        "Post Title": {"title": [{"text": {"content": post.get("title", "")[:2000]}}]},
         "Status": {"select": {"name": "Draft"}},
         "Subreddit": {"select": {"name": post.get("subreddit", "unknown")}},
         "AI Score": {"number": score_result.get("score", 0)},

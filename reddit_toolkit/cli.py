@@ -343,6 +343,24 @@ def build_parser() -> argparse.ArgumentParser:
     smatch_p.add_argument("--limit", "-n", type=int, default=5, help="Number of subreddits (default: 5)")
     smatch_p.set_defaults(func=cmd_style_match)
 
+    # --- rules ---
+    from .cli_rules import cmd_rules_learn, cmd_rules_show, cmd_rules_list
+
+    rules_parser = subparsers.add_parser("rules", help="Manage subreddit rules and community norms")
+    rules_sub = rules_parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    rl_p = rules_sub.add_parser("learn", help="Fetch official rules and infer community norms")
+    rl_p.add_argument("--subreddit", "-s", required=True, help="Subreddit name")
+    rl_p.add_argument("--force", action="store_true", help="Re-learn even if cache is fresh")
+    rl_p.set_defaults(func=cmd_rules_learn)
+
+    rs_p = rules_sub.add_parser("show", help="Show cached rules for a subreddit")
+    rs_p.add_argument("--subreddit", "-s", required=True, help="Subreddit name")
+    rs_p.set_defaults(func=cmd_rules_show)
+
+    rlist_p = rules_sub.add_parser("list", help="List all cached rule profiles")
+    rlist_p.set_defaults(func=cmd_rules_list)
+
     return parser
 
 

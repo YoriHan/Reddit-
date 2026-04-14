@@ -6,7 +6,7 @@ from reddit_toolkit.writer import (
     score_post_for_product, generate_opportunity_draft,
     extract_profile_from_text, recommend_subreddits,
     analyze_subreddit_style, generate_mimic_post,
-    match_subreddits_for_topic,
+    match_subreddits_for_topic, humanize_text,
 )
 
 
@@ -18,6 +18,20 @@ def make_anthropic_mock(text_response: str):
     mock_message.content = [mock_content]
     mock_client = MagicMock()
     mock_client.messages.create.return_value = mock_message
+    return mock_client
+
+
+def make_anthropic_mock_sequence(*responses: str):
+    """Create a mock that returns different responses on successive calls."""
+    def make_msg(text):
+        content = MagicMock()
+        content.text = text
+        msg = MagicMock()
+        msg.content = [content]
+        return msg
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = [make_msg(r) for r in responses]
+    return mock_client
     return mock_client
 
 
@@ -111,7 +125,12 @@ class TestScorePostForProduct:
 
 class TestGenerateOpportunityDraft:
     def test_returns_title_and_body(self):
-        mock_client = make_anthropic_mock('{"title": "A title", "body": "A body"}')
+        # Call 1: generate JSON, Call 2: humanize title, Call 3: humanize body
+        mock_client = make_anthropic_mock_sequence(
+            '{"title": "A title", "body": "A body"}',
+            "A title",
+            "A body",
+        )
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
                 result = generate_opportunity_draft(
@@ -121,6 +140,23 @@ class TestGenerateOpportunityDraft:
                 )
         assert result["title"] == "A title"
         assert result["body"] == "A body"
+
+    def test_humanizer_applied_to_draft(self):
+        mock_client = make_anthropic_mock_sequence(
+            '{"title": "A title", "body": "A body"}',
+            "Humanized title",
+            "Humanized body",
+        )
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = generate_opportunity_draft(
+                    {"title": "t", "subreddit": "python", "score": 100, "num_comments": 5},
+                    {"name": "MyApp", "description": "...", "tone": "casual"},
+                    "hook"
+                )
+        assert result["title"] == "Humanized title"
+        assert result["body"] == "Humanized body"
+        assert mock_client.messages.create.call_count == 3
 
 
 class TestAnalyzeSubredditStyle:
@@ -166,9 +202,11 @@ class TestAnalyzeSubredditStyle:
 
 class TestGenerateMimicPost:
     def test_returns_title_body_why(self):
-        mock_client = make_anthropic_mock(
-            '{"title": "I built a Reddit scanner", "body": "Long post body here...", '
-            '"why_it_fits": "Matches I built X pattern"}'
+        # Call 1: generate JSON, Call 2: humanize title, Call 3: humanize body
+        mock_client = make_anthropic_mock_sequence(
+            '{"title": "I built a Reddit scanner", "body": "Long post body here...", "why_it_fits": "Matches I built X pattern"}',
+            "I built a Reddit scanner",
+            "Long post body here...",
         )
         style = {"tone": "casual", "formality": "low", "self_promotion_tolerance": "high",
                  "successful_post_traits": "demos", "common_title_patterns": ["I built X"],
@@ -185,30 +223,69 @@ class TestGenerateMimicPost:
         assert "why_it_fits" in result
 
     def test_uses_2048_max_tokens(self):
-        mock_client = make_anthropic_mock('{"title": "t", "body": "b", "why_it_fits": "w"}')
+        mock_client = make_anthropic_mock_sequence(
+            '{"title": "t", "body": "b", "why_it_fits": "w"}', "t", "b"
+        )
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
                 from reddit_toolkit.writer import generate_mimic_post
                 generate_mimic_post("python", {}, {})
-        assert mock_client.messages.create.call_args.kwargs["max_tokens"] == 2048
+        # First call is the generate call — check its max_tokens
+        first_call = mock_client.messages.create.call_args_list[0]
+        assert first_call.kwargs["max_tokens"] == 2048
 
     def test_topic_appears_in_prompt(self):
-        mock_client = make_anthropic_mock('{"title": "t", "body": "b", "why_it_fits": "w"}')
+        mock_client = make_anthropic_mock_sequence(
+            '{"title": "t", "body": "b", "why_it_fits": "w"}', "t", "b"
+        )
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
                 from reddit_toolkit.writer import generate_mimic_post
                 generate_mimic_post("python", {}, {}, topic="launch announcement")
-        user_content = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
-        assert "launch announcement" in user_content
+        first_call_user = mock_client.messages.create.call_args_list[0].kwargs["messages"][0]["content"]
+        assert "launch announcement" in first_call_user
+
+    def test_humanizer_called_for_title_and_body(self):
+        mock_client = make_anthropic_mock_sequence(
+            '{"title": "t", "body": "b", "why_it_fits": "w"}',
+            "humanized title",
+            "humanized body",
+        )
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                from reddit_toolkit.writer import generate_mimic_post
+                result = generate_mimic_post("python", {}, {})
+        assert result["title"] == "humanized title"
+        assert result["body"] == "humanized body"
+        assert mock_client.messages.create.call_count == 3  # generate + 2x humanize
 
     def test_parse_error_returns_fallback(self):
-        mock_client = make_anthropic_mock("not json at all")
+        mock_client = make_anthropic_mock_sequence("not json at all", "not json at all")
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
                 from reddit_toolkit.writer import generate_mimic_post
                 result = generate_mimic_post("python", {}, {})
         assert result["title"] == ""
         assert len(result["body"]) > 0
+
+
+class TestHumanizeText:
+    def test_returns_string(self):
+        mock_client = make_anthropic_mock("This sounds human now.")
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                result = humanize_text("Leveraging synergies to foster alignment.")
+        assert isinstance(result, str)
+        assert result == "This sounds human now."
+
+    def test_uses_humanizer_system_prompt(self):
+        mock_client = make_anthropic_mock("ok")
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            with patch("reddit_toolkit.writer._make_client", return_value=mock_client):
+                humanize_text("some text")
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert "AI" in call_kwargs["system"] or "humanizer" in call_kwargs["system"].lower()
+        assert call_kwargs["messages"][0]["content"] == "some text"
 
 
 class TestMatchSubredditsForTopic:

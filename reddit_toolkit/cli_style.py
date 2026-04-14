@@ -37,6 +37,20 @@ def _learn_subreddit(subreddit: str, pages: int) -> dict:
     style_data = analyze_subreddit_style(subreddit, posts)
     cache = {"posts_analyzed": len(posts), "pages_fetched": pages, "style": style_data}
     save_style(subreddit, cache)
+
+    # Auto-learn rules using the already-fetched corpus
+    try:
+        from .rules_learner import learn_rules, RulesInferenceError
+        from .rules_store import save as save_rules
+        print("Analyzing community rules and norms...")
+        rules_data = learn_rules(subreddit, posts=posts)
+        save_rules(subreddit, rules_data)
+        print(f"  Rules profile saved for r/{subreddit}.")
+    except RulesInferenceError as e:
+        print(f"  Warning: Rules inference failed: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"  Warning: Could not learn rules: {e}", file=sys.stderr)
+
     return cache
 
 
@@ -96,6 +110,14 @@ def cmd_style_mimic(args):
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
+    # Load rules if cached (non-fatal if missing)
+    rules_data = None
+    try:
+        from .rules_store import load as load_rules, RulesNotFoundError
+        rules_data = load_rules(args.subreddit)
+    except Exception:
+        pass
+
     # Resolve product info
     if args.product:
         try:
@@ -121,6 +143,7 @@ def cmd_style_mimic(args):
             cached["style"],
             profile,
             topic=args.topic or "",
+            rules=rules_data,
         )
     except WriterConfigError as e:
         print(f"Error: {e}", file=sys.stderr)

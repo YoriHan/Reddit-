@@ -19,6 +19,24 @@ def cmd_scan_run(args):
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    # Best-effort: ensure rules are cached for each target subreddit
+    from .rules_store import load as load_rules, is_stale_norms, RulesNotFoundError
+    from .rules_learner import learn_rules, RulesInferenceError
+    from .rules_store import save as save_rules
+    for sub in profile.get("subreddits", []):
+        sub_name = sub["name"] if isinstance(sub, dict) else sub
+        try:
+            existing = load_rules(sub_name)
+            if not is_stale_norms(existing):
+                continue
+        except RulesNotFoundError:
+            pass
+        try:
+            rules_data = learn_rules(sub_name)
+            save_rules(sub_name, rules_data)
+        except Exception:
+            pass  # non-fatal: scan proceeds without rules
+
     result = run_scan(
         profile=profile,
         dry_run=args.dry_run,
