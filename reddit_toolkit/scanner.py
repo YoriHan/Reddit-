@@ -81,7 +81,14 @@ def run_scan(
     """Run the full scan pipeline for a product."""
     product_id = profile["id"]
     effective_threshold = threshold if threshold is not None else profile.get("scan_threshold", 7)
-    subreddit_names = [s["name"] for s in profile.get("subreddits", [])]
+    # Merge subreddits from profile AND from the pipeline tracker (discover → track → scan)
+    profile_subs = [s["name"] for s in profile.get("subreddits", [])]
+    try:
+        from .subreddit_tracker import list_tracked
+        tracker_subs = [s["name"] for s in list_tracked(product_id)]
+    except Exception:
+        tracker_subs = []
+    subreddit_names = list(dict.fromkeys(profile_subs + tracker_subs))  # dedup, preserve order
     scanned_at = datetime.now(timezone.utc).isoformat()
 
     _log(f"Starting scan for product: {product_id}")

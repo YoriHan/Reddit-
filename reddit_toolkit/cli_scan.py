@@ -19,12 +19,15 @@ def cmd_scan_run(args):
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Best-effort: ensure rules are cached for each target subreddit
+    # Best-effort: ensure rules are cached for each target subreddit (profile + tracker)
     from .rules_store import load as load_rules, is_stale_norms, RulesNotFoundError
     from .rules_learner import learn_rules, RulesInferenceError
     from .rules_store import save as save_rules
-    for sub in profile.get("subreddits", []):
-        sub_name = sub["name"] if isinstance(sub, dict) else sub
+    from .subreddit_tracker import list_tracked
+    profile_subs = [s if isinstance(s, str) else s["name"] for s in profile.get("subreddits", [])]
+    tracker_subs = [s["name"] for s in list_tracked(args.product)]
+    all_scan_subs = list(dict.fromkeys(profile_subs + tracker_subs))
+    for sub_name in all_scan_subs:
         try:
             existing = load_rules(sub_name)
             if not is_stale_norms(existing):
